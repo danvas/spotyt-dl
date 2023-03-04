@@ -18,58 +18,8 @@
 
 <body>
   <a class="text-decoration-none" href="/danvas">danvas</a>
-  <h1>{{ playlist.name }}
-    <button onclick="downloadTracks()" type="button" class="btn btn-primary btn-lg"><span><i
-          class="bi bi-download"></i></span></button>
-  </h1>
-  <div id="main-play-button"></div>
-
   <div id="yt-player"></div>
-  <div class="d-flex flex-wrap">
-    {% for track in playlist.tracks %}
-
-    <div class="card" style="width: 12rem; margin: 5px">
-      <img src="{{ track.album_img_url }}" class="card-img-top" alt="{{ track.album_img_url }}">
-
-      <div class="card-body">
-        <h5 class="card-title">{{ track.artist }}</h5>
-        <p class="card-text">
-          {% if track.preview_url is none %}
-          <span><i class="bi bi-dash-circle"></i></span>
-          {% else %}
-          <audio id="track-preview-{{track.id}}" src="{{ track.preview_url if track.preview_url is not none }}"></audio>
-          <span style="cursor: pointer;" onclick="togglePreviewTrack(this, 'track-preview-{{track.id}}')">
-            <i id="track-preview-{{track.id}}-icon" class="bi bi-play-circle"></i>
-          </span>
-          {% endif %}
-          {{track.name }}
-        </p>
-        <div class="d-flex align-items-center flex-row">
-          <div class="pe-1">
-            <span class="btn btn-danger yt-playback-button" data-bs-toggle="tooltip" data-bs-placement="top"
-              data-bs-custom-class="custom-tooltip" data-bs-title="Playback Youtube audio" style="cursor: pointer;"
-              onclick="toggleVideoPlayback('{{track.id}}')">
-              <i id="{{track.id}}-icon" class="bi bi-play-circle"></i>
-            </span>
-          </div>
-
-          <div class="flex-fill">
-            <select onchange="onChangeVideoSelection(this)" class="form-select" aria-label="Default select example">
-              <option id="{{ track.id }}&{{ video_ids[track.id][0] }}" class="yt-video-item"
-                value="{{ track.id }}&{{ video_ids[track.id][0] }}" selected>
-                {{ video_ids[track.id][0] }}
-              </option>
-              {% for video_id in video_ids[track.id][1:] %}
-              <option id="{{ track.id }}&{{ video_id }}" class="yt-video-item" value="{{ track.id }}&{{ video_id }}">{{
-                video_id }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
+  <div id="spyt-playlist" data-playlist-id="{{playlistId}}"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-w76AqPfDkMBDXo30jS1Sgez6pr3x5MlQ1ZAGC+nuZB+EYdgRZgiwxhTBTkF7CXvN"
@@ -77,7 +27,10 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"
     integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3"
     crossorigin="anonymous"></script>
+  <script src="../static/playlist.js" type="text/babel"></script>
+  <script src="../static/yt_iframe_api.js" type="text/babel"></script>
   <script src="../static/play_button.js" type="text/babel"></script>
+  <script src="../static/helpers.js" type="text/babel"></script>
   <script>
 
 
@@ -163,69 +116,8 @@
     var firstScriptTag = document.getElementsByTagName('script')[0];
     firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-    // 3. This function creates an <iframe> (and YouTube player)
-    //    after the API code downloads.
-    var player;
-    var currentTrack;
-    function onYouTubeIframeAPIReady() {
-      const [video] = getSelectedYoutubeVideos();
-      currentTrack = { ...video };
-      player = new YT.Player("yt-player", {
-        width: '0',
-        height: '0',
-        videoId: currentTrack.video_id,
-        playerVars: {
-          'playsinline': 1,
-          'controls': 0, // Hide player controls
-          'disablekb': 1, // Disable keyboard controls
-          'iv_load_policy': 3, // Hide video annotations
-          'origin': 'http://127.0.0.1:8000',
-        },
-        events: {
-          'onReady': onPlayerReady,
-          'onStateChange': onPlayerStateChange
-        }
-      })
-    }
-    // 4. The API will call this function when the video player is ready.
-    function onPlayerReady(event) {
-    }
-
-    // 5. The API calls this function when the player's state changes.
-    function onPlayerStateChange(event) {
-      // const player = event.target;
-      const videoData = player.getVideoData();
-      const [selectedVideo] = getSelectedYoutubeVideos()
-        .filter(v => v.video_id === videoData.video_id);
-
-      if (!selectedVideo) {
-        currentTrack = null;
-        return;
-      }
-
-      const stopped = isStopped(player);
-      setVideoPlaybackIcon(selectedVideo.track_id, stopped)
-
-      // Update playback icon of former track and update `currentTrack`
-      if (currentTrack && (currentTrack?.track_id !== selectedVideo.track_id)) {
-        setVideoPlaybackIcon(currentTrack?.track_id, true);
-      }
-      currentTrack = { ...selectedVideo };
-
-      // Update video_item's text
-      const id = toYtVideoItemId(currentTrack.track_id, currentTrack.video_id);
-      const videoItemEl = document.getElementById(id);
-      const text = videoItemEl.innerText.replace(/[\n\r]+|[\s]{2,}/g, ' ').trim();
-      const doUpdate = (videoData.title.length > 0) && (text !== videoData.title);
-      if (doUpdate) {
-        const duration = player.getDuration();
-        const durationText = toMinutesAndSeconds(duration);
-        videoItemEl.innerText = `${videoData.title} (${durationText})`;
-      }
-    }
-
-    function isStopped(ytPlayer) {
-      const playerState = ytPlayer.getPlayerState();
+    function isStopped(player) {
+      const playerState = player.getPlayerState();
       if (playerState === YT.PlayerState.BUFFERING) {
         return undefined;
       }
@@ -253,19 +145,20 @@
         return;
       }
 
-      const stopped = isStopped(player);
+      const stopped = isStopped(ytplayer);
       if (stopped) {
-        player.playVideo();
+        ytplayer.playVideo();
       } else {
-        player.pauseVideo();
+        ytplayer.pauseVideo();
       }
     }
 
     function loadVideoPlayer(trackId, videoId) {
+      console.log("loadVideoPlayer HTML!!", { trackId, videoId })
       loadingVideo = { trackId, videoId };
-      player.stopVideo();
-      player.clearVideo();
-      player.loadVideoById(videoId); // TODO: Load or cue? Cue won't start video automatically
+      ytplayer.stopVideo();
+      ytplayer.clearVideo();
+      ytplayer.loadVideoById(videoId); // TODO: Load or cue? Cue won't start video automatically
     }
 
     function onChangeVideoSelection(el) {

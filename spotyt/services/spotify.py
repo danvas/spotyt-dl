@@ -108,5 +108,5 @@ def get_playlist_tracks(playlist_id, filter=[]) -> Playlist:
         count = count + 100
         print(f"Spotify tracks: {len(tracks)}/{total}")
 
-    return {'playlist_id': playlist_id, 'tracks': tracks, 'name': name, 'description': html.unescape(results['description'])}
+    return {'id': playlist_id, 'tracks': tracks, 'name': name, 'description': html.unescape(results['description'])}
 
