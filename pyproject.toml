@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spotyt"
+authors = [
+    {name = "Daniel A. Vasquez", email = "d@nielvas.co"},
+]
+description = "Download songs from Spotify playlists via Youtube Music"
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["spotify", "youtube", "mp3"]
+license = {text = "MIT"}
+classifiers = [
+    "Topic :: Multimedia :: Sound/Audio :: Conversion",
+]
+dependencies = [
+  "fastapi == 0.92.0",
+  "jinja2 == 3.1.2",
+  "python-dotenv == 1.0.0",
+  "spotipy == 2.22.1",
+  "uvicorn[standard] == 0.20.0",
+  "uvloop == 0.17.0",
+  "ytmusicapi == 0.25.0",
+]
+dynamic = ["version"]

@@ -7,8 +7,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import Template
 import uvicorn
-from services import spotify, youtube
-from services.spotify import TrackKeys
+
+from spotyt.services import spotify, youtube
+from spotyt.services.spotify import TrackKeys
 
 import time
 
@@ -90,4 +91,6 @@ async def read_public_note(request: Request):
     return templates.TemplateResponse("index.html", context)
 
 if __name__ == '__main__':
-    uvicorn.run(app)
+
+    kwargs = {"reload": True}
+    uvicorn.run("spotyt.main:app", **kwargs)
