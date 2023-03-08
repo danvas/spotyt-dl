@@ -74,9 +74,12 @@ const getPlayerDataWithTimeout = async () => {
   let intervalId;
   const interval = new Promise((resolve, _) => {
     intervalId = setInterval(() => {
-      const videoData = ytplayer.getVideoData();
+      let videoData = ytplayer.getVideoData();
       if (videoData?.title) {
         clearInterval(intervalId);
+        if (!videoData.duration) {
+          videoData = { ...videoData, duration: ytplayer.playerInfo?.duration || 1 };
+        }
         const playing = ytplayer.getPlayerState() === YT.PlayerState.PLAYING
         return resolve({ playing, videoData })
       }

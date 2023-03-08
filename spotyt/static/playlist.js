@@ -50,7 +50,7 @@ function VideoSelector({ id, name, artist, duration, album }) {
       .then(({ playing, videoData }) => {
         setIsPlaying(playing);
         if (!(videoData.video_id in videos)) {
-          // console.log('!!! getPlayerDataWithTimeout', { playing, currentVideoId, data })
+          // console.log('!!! getPlayerDataWithTimeout', { playing, currentVideoId, videoData })
           setVideos({ ...videos, [videoData.video_id]: videoData })
         }
       })
@@ -188,7 +188,7 @@ function TrackCard({ track }) {
               </span>
             </>
           }
-          <span> {track.name} ({toMinutesAndSeconds(track.duration)})</span>
+          <span> {track.name} ({track.duration ? toMinutesAndSeconds(track.duration) : track.duration})</span>
         </p>
       </div>
       <VideoSelector {...track} />
