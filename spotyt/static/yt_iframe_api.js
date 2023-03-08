@@ -10,16 +10,17 @@ firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 // 3. This function creates an <iframe> (and YouTube player)
 //    after the API code downloads.
 var ytplayer;
+const [playerWidth, playerHeight] = ['0', '0'];
 function onYouTubeIframeAPIReady() {
   // const [video] = getSelectedYoutubeVideos();
   // currentTrack = { ...video };
   ytplayer = new YT.Player("yt-player", {
-    width: '100%',
-    height: '500',
+    width: playerWidth,
+    height: playerHeight,
     videoId: '', // 'SD2uoFC7aEQ',
     playerVars: {
       'playsinline': 1,
-      'controls': 0, // Hide player controls
+      'controls': 1, // Hide player controls
       'disablekb': 1, // Disable keyboard controls
       'iv_load_policy': 3, // Hide video annotations
       'origin': 'http://127.0.0.1:8000',
@@ -32,43 +33,65 @@ function onYouTubeIframeAPIReady() {
 }
 // 4. The API will call this function when the video player is ready.
 function onPlayerReady(event) {
-  console.log('js onPlayerReady!!')
+  console.log('ytplayer ready.')
 }
 
-// 3. This function creates an <iframe> (and YouTube player)
-//    after the API code downloads.
-// const [video] = getSelectedYoutubeVideos();
-// currentTrack = { ...video };
 
 // 5. The API calls this function when the player's state changes.
 function onPlayerStateChange(event) {
   // const player = event.target;
-  const videoData = ytplayer.getVideoData();
-  const [selectedVideo] = getSelectedYoutubeVideos()
-    .filter(v => v.video_id === videoData.video_id);
+  const playerState = event.target.getPlayerState();
+  const state = store.getState()
+  const videoData = event.target.getVideoData();
+  if (videoData.title && playerState !== YT.PlayerState.BUFFERING) {
+    if (!videoData.isPlayable) {
+      console.warn('Video is not playable!', { videoData })
+    }
 
-  if (!selectedVideo) {
-    currentTrack = null;
-    return;
+    const duration = event.target.playerInfo?.duration;
+    if (duration) {
+      videoData.duration = duration;
+    }
+
+    // console.log('STATE!!!', { ytstate: YT.PlayerState, duration, playerState, player: event.target })
+    store.dispatch(setSelectedVideoData(videoData))
   }
+  // console.log('yt_iframe_api.js onPlayerStateChange!!', { ytplayer, videoData })
+}
 
-  const stopped = isStopped(ytplayer);
-  setVideoPlaybackIcon(selectedVideo.track_id, stopped)
-
-  // Update playback icon of former track and update `currentTrack`
-  if (currentTrack && (currentTrack?.track_id !== selectedVideo.track_id)) {
-    setVideoPlaybackIcon(currentTrack?.track_id, true);
-  }
-  currentTrack = { ...selectedVideo };
-
-  // Update video_item's text
-  const id = toYtVideoItemId(currentTrack.track_id, currentTrack.video_id);
-  const videoItemEl = document.getElementById(id);
-  const text = videoItemEl.innerText.replace(/[\n\r]+|[\s]{2,}/g, ' ').trim();
-  const doUpdate = (videoData.title.length > 0) && (text !== videoData.title);
-  if (doUpdate) {
-    const duration = ytplayer.getDuration();
-    const durationText = toMinutesAndSeconds(duration);
-    videoItemEl.innerText = `${videoData.title} (${durationText})`;
+function isPlayerPlaying() {
+  console.log({ ytplayer })
+  try {
+    return ytplayer.getPlayerState() === YT.PlayerState.PLAYING;
+  } catch (e) {
+    console.warn('Error:', e);
+    return false;
   }
 }
+
+
+const getPlayerDataWithTimeout = async () => {
+  let intervalId;
+  const interval = new Promise((resolve, _) => {
+    intervalId = setInterval(() => {
+      const videoData = ytplayer.getVideoData();
+      if (videoData?.title) {
+        clearInterval(intervalId);
+        const playing = ytplayer.getPlayerState() === YT.PlayerState.PLAYING
+        return resolve({ playing, videoData })
+      }
+    }, 50);
+  })
+
+  const timeout = new Promise((_, reject) => {
+    const delay = 3000;
+    setTimeout(() => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      return reject(Error(`getPlayerVideoDataWithTimeout timed out after ${delay}ms.`))
+    }, delay);
+  });
+
+  return Promise.race([interval, timeout])
+};

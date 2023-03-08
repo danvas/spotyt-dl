@@ -1,13 +1,12 @@
 from dotenv import load_dotenv
 from pprint import pprint
+from pydantic import BaseModel
 from typing import List, Optional
 from fastapi import FastAPI, Request, Query
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from jinja2 import Template
 import uvicorn
-
 from spotyt.services import spotify, youtube
 from spotyt.services.spotify import TrackKeys
 
@@ -47,18 +46,27 @@ def get_playlist_tracks(
         "timeElapsedSeconds": end - start,
     }
 
-@app.get("/api/search/{playlist_id}/")
-async def search_youtube_tracks(playlist_id: str):
-    """Get a Spotify playlist owned by a Spotify user.
+class SearchFields(BaseModel):
+    name: str
+    artist: str
+
+@app.post("/api/search/")
+async def search_youtube_videos(
+    fields: SearchFields,
+    album: Optional[str] = Query(default=None),
+    duration: Optional[float] = Query(default=None),
+):
+    """Find YouTube videos for a given track.
     """
-    playlist_payload = spotify.get_playlist_tracks(playlist_id)
     start = time.time()
-    video_ids = youtube.search_videos(playlist_payload['tracks'])
+    result = youtube.search_videos(fields.name, fields.artist, album, duration)
     end = time.time()
+
+    # video_ids = youtube.search_videos(playlist_payload['tracks'])
     
     return {
-        "payload": video_ids,
-        "timeElapsedSeconds": end - start
+        "payload": result,
+        "timeElapsedSeconds": end - start,
     }
 
 @app.get("/{user_id}", response_class=HTMLResponse)

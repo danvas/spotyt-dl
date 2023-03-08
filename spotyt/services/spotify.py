@@ -22,8 +22,8 @@ class Track(BaseModel):
     artist: str
     name: str
     album: str
-    album_img_url: str
-    preview_url: str
+    album_img_url: str | None = None
+    preview_url: str | None = None
     duration: float
 
     @validator('album_img_url', 'preview_url')

@@ -172,15 +172,7 @@ class YTMusicTransfer:
                 else:
                     video_ids[song['id']] = targetSongs
 
-            if i > 0 and i % 10 == 0:
-                print(f"YouTube tracks: {i}/{len(songs)}")
-
-        with open('./noresults_youtube.txt', 'w', encoding="utf-8") as f:
-            f.write("\n".join(notFound))
-            f.write("\n")
-            f.close()
-        
-        return video_ids
+        return video_ids, notFound
 
     def add_playlist_items(self, playlistId, videoIds):
         videoIds = OrderedDict.fromkeys(videoIds)
@@ -217,7 +209,25 @@ class YTMusicTransfer:
             print("Aborted. No playlists were deleted.")
 
 
-def search_videos(tracks):
+from pprint import pprint
+def search_videos(name, artist, album=None, duration=None):
+    song = {'name': name, 'artist': artist}
+    if album:
+        song['album'] = album
+    if duration:
+        song['duration'] = duration
+
     ytmusic = YTMusicTransfer()
-    video_ids = ytmusic.search_songs(tracks)
-    return video_ids
+    name = re.sub(r' \(feat.*\..+\)', '', name)
+    query = artist + ' ' + name
+    query = query.replace(" &", "")
+    result = ytmusic.api.search(query)
+    if len(result) == 0:
+        return
+    
+    targetSongs = ytmusic.get_best_fit_song_ids(result, song)
+    if targetSongs is None:
+        return
+    
+    return targetSongs
+
