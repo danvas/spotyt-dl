@@ -59,24 +59,7 @@ function VideoSelector({ id, name, artist, duration, album, progressCallback }) 
 
   useEffect(() => {
     setLoading(true);
-    const params = new URLSearchParams()
-    if (duration) {
-      params.set('duration', duration)
-    }
-    if (album) {
-      params.set('album', album)
-    }
-    const url = `/api/search/?${params.toString()}}`
-    const body = JSON.stringify({ name, artist })
-    const options = {
-      method: 'POST',
-      headers: {
-        "Content-Type": "application/json",
-        "accept": "application/json",
-      },
-      body
-    }
-    fetch(url, options)
+    searchYoutubeVideos(name, artist, duration, album)
       .then(response => response.json())
       .then(data => {
         setVideoIds(data.payload);
@@ -211,7 +194,7 @@ function Playlist({ playlistId }) {
     console.log('fetching playlist', playlistId)
     setLoading(true);
 
-    fetch(`/api/playlist/${playlistId}`)
+    fetchPlaylist(playlistId)
       .then((response) => {
         return response.json();
       })
@@ -279,7 +262,7 @@ function Playlist({ playlistId }) {
           {
             inProgress ?
               <div className="progress" role="progressbar" aria-label="Tracks found" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
-                <div className="progress-bar" style={{ width: `${progress / tracks.length * 100}%` }}>{progress} of {tracks.length} tracks found...</div>
+                <div className="progress-bar" style={{ width: `${progress / tracks.length * 100}%` }}>{progress} of {tracks.length} tracks found</div>
               </div>
               :
               null
@@ -288,9 +271,9 @@ function Playlist({ playlistId }) {
         <div className="p-2">
           <button onClick={downloadVideos} type="button" className="btn btn-primary">
             {inProgress ?
-              <Spinner classList={['spinner-border-sm']} />
+              <Spinner classList={['spinner-border-sm']} label=" Searching..." />
               :
-              <span><i className="bi bi-download"></i>  Download tracks</span>
+              <span><i className="bi bi-download"></i>&nbsp;&nbsp;Download tracks</span>
             }
           </button>
         </div>
