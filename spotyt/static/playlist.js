@@ -142,7 +142,7 @@ function VideoSelector({ id, name, artist, duration, album, progressCallback }) 
 }
 
 
-function TrackCard({ track, progressCallback }) {
+function TrackCard({ track, progressCallback, onRemoveTrack }) {
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef(null);
 
@@ -158,8 +158,12 @@ function TrackCard({ track, progressCallback }) {
   }
 
   const playPause = playing ? 'pause' : 'play';
+  // TODO: Finish onRemoveTrack functionality
   return (
     <div className="card" style={{ width: "12rem", margin: "5px" }}>
+      {/* <div className="position-relative">
+        <button onClick={onRemoveTrack} type="button" className=" btn-close position-absolute top-0 end-0" aria-label="Close"></button>
+      </div> */}
       <img src={track.album_img_url} className="card-img-top" alt={track.album_img_url} />
 
       <div className="card-body">
@@ -185,6 +189,7 @@ function TrackCard({ track, progressCallback }) {
 }
 
 function Playlist({ playlistId }) {
+  const [user, setUser] = useState({});
   const [playlist, setPlaylist] = useState({});
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -193,6 +198,8 @@ function Playlist({ playlistId }) {
   useEffect(() => {
     console.log('fetching playlist', playlistId)
     setLoading(true);
+
+    getCurrentUser().then(setUser);
 
     fetchPlaylist(playlistId)
       .then((response) => {
@@ -212,15 +219,18 @@ function Playlist({ playlistId }) {
     console.log('downloading tracks:', state.playlist.selectedVideoIds)
   }
 
-  const loadPlaylist = () => {
-
-  }
-
   const skipForward = () => {
     console.log('skip forward')
   }
 
-  const onRemoveTrack = () => {
+  const skipBackward = () => {
+    console.log('skip backward')
+  }
+
+  const removeTrack = (id) => {
+    console.log('removing track!', { id, playlist })
+    const updatedTracks = playlist.tracks.filter((track) => track.id !== id);
+    setPlaylist({ ...playlist, tracks: updatedTracks });
   }
 
   const toggleVideo = () => {
@@ -244,11 +254,12 @@ function Playlist({ playlistId }) {
     setProgress(count);
   }
 
-  const tracks = playlist.tracks || [];
+  const tracks = playlist.tracks?.slice(0, 3) || [];
   const inProgress = progress === 0 || progress < tracks.length
+
   return (
-    <div className="container">
-      <a className="text-decoration-none" href="/danvas">danvas</a>
+    <div className="pt-4 container">
+      <a className="h4 text-primary text-decoration-none" href={`/${user.id}`}>{user.display_name}</a>
       {loading ? <Spinner type="grow" label="Loading..." /> : <h1 className="display-5"> {playlist?.name}</h1>}
       <div className="d-flex flex-row">
         <div className="p-2 align-self-center">
@@ -269,11 +280,11 @@ function Playlist({ playlistId }) {
           }
         </div>
         <div className="p-2">
-          <button onClick={downloadVideos} type="button" className="btn btn-primary">
+          <button onClick={downloadVideos} type="button" className={`btn btn-${inProgress ? 'primary' : 'success'} rounded-pill`}>
             {inProgress ?
               <Spinner classList={['spinner-border-sm']} label=" Searching..." />
               :
-              <span><i className="bi bi-download"></i>&nbsp;&nbsp;Download tracks</span>
+              <div><i className="bi bi-download"></i><span> Download </span></div>
             }
           </button>
         </div>
@@ -282,7 +293,7 @@ function Playlist({ playlistId }) {
         {tracks.map((track) =>
           <TrackCard
             key={track.id}
-            onRemoveTrack={onRemoveTrack}
+            onRemoveTrack={() => removeTrack(track.id)}
             track={track}
             progressCallback={getSelectedVideoIdsLength}
           />)}

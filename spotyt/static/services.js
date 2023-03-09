@@ -4,6 +4,11 @@ function fetchPlaylist(id) {
   return fetch(`/api/playlist/${id}`);
 }
 
+function getCurrentUser() {
+  return fetch("/api/me")
+    .then((response) => response.json());
+}
+
 
 function searchYoutubeVideos(name, artist, duration, album) {
   const params = new URLSearchParams()

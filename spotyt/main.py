@@ -67,6 +67,10 @@ async def search_youtube_videos(
         "timeElapsedSeconds": end - start,
     }
 
+@app.get("/api/me")
+async def get_current_user():
+    return spotify.get_current_user()
+
 @app.get("/{user_id}", response_class=HTMLResponse)
 async def read_item(request: Request, user_id: str):
     playlists = spotify.get_playlists(user_id)

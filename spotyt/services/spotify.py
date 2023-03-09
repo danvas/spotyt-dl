@@ -81,6 +81,10 @@ def get_playlist(id):
     with spotify_client() as sp:
         return sp.playlist(id)
 
+def get_current_user():
+    with spotify_client() as sp:
+        return sp.current_user()
+    
 def get_playlists(user: str):
     """Get spo
         user: profile information about the current user.
