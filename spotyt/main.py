@@ -61,8 +61,6 @@ async def search_youtube_videos(
     start = time.time()
     result = youtube.search_videos(fields.name, fields.artist, album, duration)
     end = time.time()
-
-    # video_ids = youtube.search_videos(playlist_payload['tracks'])
     
     return {
         "payload": result,

@@ -209,7 +209,6 @@ class YTMusicTransfer:
             print("Aborted. No playlists were deleted.")
 
 
-from pprint import pprint
 def search_videos(name, artist, album=None, duration=None):
     song = {'name': name, 'artist': artist}
     if album:

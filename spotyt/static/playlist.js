@@ -37,7 +37,7 @@ const PlaybackButton = ({ playing, loading, togglePlayback }) => {
   )
 }
 
-function VideoSelector({ id, name, artist, duration, album }) {
+function VideoSelector({ id, name, artist, duration, album, progressCallback }) {
   const [loading, setLoading] = useState(false);
   const [videoIds, setVideoIds] = useState([]);
   const [currentVideoId, setCurrentVideoId] = useState(null);
@@ -80,6 +80,7 @@ function VideoSelector({ id, name, artist, duration, album }) {
       .then(response => response.json())
       .then(data => {
         setVideoIds(data.payload);
+        dispatch(setSelectedVideoIds({ trackId: id, videoId: data.payload[0] }))
         const { playlist } = store.getState();
         if (currentVideoId === null && id === playlist.currentTrackId) {
           setCurrentVideoId(data.payload[0]);
@@ -90,6 +91,7 @@ function VideoSelector({ id, name, artist, duration, album }) {
       })
       .finally(() => {
         setLoading(false);
+        progressCallback();
       });
   }, []);
 
@@ -99,6 +101,7 @@ function VideoSelector({ id, name, artist, duration, album }) {
       if (id !== playlist.currentTrackId) {
         dispatch(setCurrentTrackId(id))
       }
+      dispatch(setSelectedVideoIds({ trackId: id, videoId: currentVideoId }))
       loadVideoPlayer(currentVideoId);
       updateVideosPlayingState();
     }
@@ -119,6 +122,7 @@ function VideoSelector({ id, name, artist, duration, album }) {
     }
   }
 
+  // FIXME: PlaybackButton width should be fixed
   return (
     <div className="btn-group">
       <PlaybackButton playing={isPlaying} loading={loading} togglePlayback={toggleVideoPlayback} />
@@ -155,7 +159,7 @@ function VideoSelector({ id, name, artist, duration, album }) {
 }
 
 
-function TrackCard({ track }) {
+function TrackCard({ track, progressCallback }) {
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef(null);
 
@@ -191,7 +195,7 @@ function TrackCard({ track }) {
           <span> {track.name} ({track.duration ? toMinutesAndSeconds(track.duration) : track.duration})</span>
         </p>
       </div>
-      <VideoSelector {...track} />
+      <VideoSelector {...track} progressCallback={progressCallback} />
     </div>
 
   )
@@ -200,6 +204,7 @@ function TrackCard({ track }) {
 function Playlist({ playlistId }) {
   const [playlist, setPlaylist] = useState({});
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const dispatch = useDispatch()
 
   useEffect(() => {
@@ -220,21 +225,85 @@ function Playlist({ playlistId }) {
   }, []);
 
   const downloadVideos = () => {
-    console.log('downloading tracks', playlist.tracks)
+    const state = store.getState();
+    console.log('downloading tracks:', state.playlist.selectedVideoIds)
   }
 
+  const loadPlaylist = () => {
+
+  }
+
+  const skipForward = () => {
+    console.log('skip forward')
+  }
+
+  const onRemoveTrack = () => {
+  }
+
+  const toggleVideo = () => {
+    const { width, height } = ytplayer.getSize();
+    console.log({ width, height, ytplayer, hidden: ytplayer.h.hidden })
+    if (width === 0) {
+      ytplayer.setSize(640, 360);
+      return
+    }
+    // ytplayer.setSize(0, 0);
+    if (ytplayer.h.hidden) {
+      ytplayer.h.hidden = false;
+    } else {
+      ytplayer.h.hidden = true;
+    }
+  }
+
+  const getSelectedVideoIdsLength = () => {
+    const state = store.getState();
+    const count = state.playlist.selectedVideoIds.length;
+    setProgress(count);
+  }
+
+  const tracks = playlist.tracks || [];
+  const inProgress = progress === 0 || progress < tracks.length
   return (
-    <>
-      {loading ? <Spinner type="grow" label="Loading..." /> : <h1> {playlist?.name}</h1>}
-      <button onClick={downloadVideos} type="button" className="btn btn-primary btn-lg"><span><i
-        className="bi bi-download"></i></span></button>
+    <div className="container">
+      <a className="text-decoration-none" href="/danvas">danvas</a>
+      {loading ? <Spinner type="grow" label="Loading..." /> : <h1 className="display-5"> {playlist?.name}</h1>}
+      <div className="d-flex flex-row">
+        <div className="p-2 align-self-center">
+          <div className="btn-group" role="group" aria-label="Playback Controller">
+            <button type="button" className="btn btn-outline-primary" disabled={!progress}><i className="bi bi-skip-backward"></i></button>
+            <button type="button" className="btn btn-outline-primary" disabled={!progress}><i className="bi bi-play"></i></button>
+            <button type="button" onClick={skipForward} className="btn btn-outline-primary" disabled={progress < 2}><i className="bi bi-skip-forward"></i></button>
+          </div>
+        </div>
+        <div className="p-2 align-self-center flex-fill">
+          {
+            inProgress ?
+              <div className="progress" role="progressbar" aria-label="Tracks found" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+                <div className="progress-bar" style={{ width: `${progress / tracks.length * 100}%` }}>{progress} of {tracks.length} tracks found...</div>
+              </div>
+              :
+              null
+          }
+        </div>
+        <div className="p-2">
+          <button onClick={downloadVideos} type="button" className="btn btn-primary">
+            {inProgress ?
+              <Spinner classList={['spinner-border-sm']} />
+              :
+              <span><i className="bi bi-download"></i>  Download tracks</span>
+            }
+          </button>
+        </div>
+      </div>
       <div className="d-flex flex-wrap">
-        {playlist.tracks?.map((track) =>
+        {tracks.map((track) =>
           <TrackCard
             key={track.id}
+            onRemoveTrack={onRemoveTrack}
             track={track}
+            progressCallback={getSelectedVideoIdsLength}
           />)}
       </div>
-    </>
+    </div>
   )
 }

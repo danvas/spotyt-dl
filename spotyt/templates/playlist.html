@@ -25,7 +25,6 @@
 </head>
 
 <body>
-  <a class="text-decoration-none" href="/danvas">danvas</a>
   <div id="yt-player"></div>
   <div id="playlist-root" data-playlist-id="{{ playlistId }}"></div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"
@@ -40,7 +39,7 @@
   <script type="text/babel">
     const { configureStore, createSlice } = RTK;
     const { Provider } = ReactRedux;
-    const playlistInitialState = { tracks: [], currentTrackId: "" };
+    const playlistInitialState = { tracks: [], currentTrackId: "", selectedVideoIds: [] };
     const playlistSlice = createSlice({
       name: 'playlist',
       initialState: playlistInitialState,
@@ -59,10 +58,18 @@
             }
           });
         },
+        setSelectedVideoIds: (state, action) => {
+          const { trackId, videoId } = action.payload;
+          const idx = state.tracks.findIndex(({ id }) => id === trackId);
+          if (state.selectedVideoIds[idx] !== videoId) {
+            state.selectedVideoIds[idx] = videoId;
+          }
+        },
       }
     });
 
     const {
+      setSelectedVideoIds,
       setSelectedVideoData,
       setCurrentTrackId,
       setTracks

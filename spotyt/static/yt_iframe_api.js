@@ -39,7 +39,6 @@ function onPlayerReady(event) {
 
 // 5. The API calls this function when the player's state changes.
 function onPlayerStateChange(event) {
-  // const player = event.target;
   const playerState = event.target.getPlayerState();
   const state = store.getState()
   const videoData = event.target.getVideoData();
