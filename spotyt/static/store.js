@@ -1,6 +1,10 @@
 const { configureStore, createSlice } = RTK;
 const { Provider } = ReactRedux;
-const playlistInitialState = { tracks: [], currentTrackId: "", selectedVideoIds: [] };
+const playlistInitialState = {
+  tracks: [],
+  currentTrackId: "",
+  selectedVideoIds: []
+};
 const playlistSlice = createSlice({
   name: 'playlist',
   initialState: playlistInitialState,
@@ -10,14 +14,6 @@ const playlistSlice = createSlice({
     },
     setCurrentTrackId: (state, action) => {
       state.currentTrackId = action.payload
-    },
-    setSelectedVideoData: (state, action) => {
-      // Redux Toolkit allows us to write "mutating" logic in reducers.
-      state.tracks.forEach((track) => {
-        if (track.id === state.currentTrackId) {
-          track.videoData = action.payload;
-        }
-      });
     },
     setSelectedVideoIds: (state, action) => {
       const { trackId, videoId } = action.payload;
@@ -31,7 +27,6 @@ const playlistSlice = createSlice({
 
 const {
   setSelectedVideoIds,
-  setSelectedVideoData,
   setCurrentTrackId,
   setTracks
 } = playlistSlice.actions;
@@ -40,6 +35,14 @@ const store = configureStore({
   devTools: true,
   reducer: { playlist: playlistSlice.reducer },
 });
+
+// Convenience functions
+const getPlaylistState = () => store.getState().playlist;
+const getTracksState = () => store.getState().playlist?.tracks || [];
+const getTrackStateByIndex = (index) => getTracksState()[index] || {};
+const getTrackStateIndexById = (trackId) => getTracksState().findIndex((track) => track.id === trackId);
+const getCurrentTrackIdState = () => store.getState().playlist?.currentTrackId;
+const getSelectedVideoIdsState = () => store.getState().playlist?.selectedVideoIds;
 
 const playlistRootElement = document.getElementById("playlist-root");
 const playlistId = playlistRootElement.dataset?.playlistId;

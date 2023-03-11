@@ -38,62 +38,31 @@ function onPlayerReady(event) {
 
 
 // 5. The API calls this function when the player's state changes.
-function onPlayerStateChange(event) {
-  const playerState = event.target.getPlayerState();
-  const state = store.getState()
-  const videoData = event.target.getVideoData();
-  if (videoData.title && playerState !== YT.PlayerState.BUFFERING) {
+function onPlayerStateChange({ data, target }) {
+  const videoData = target.getVideoData();
+  if (videoData.title && (data !== YT.PlayerState.BUFFERING)) {
     if (!videoData.isPlayable) {
       console.warn('Video is not playable!', { videoData })
     }
 
-    const duration = event.target.playerInfo?.duration;
+    const duration = target.playerInfo?.duration;
     if (duration) {
       videoData.duration = duration;
     }
 
-    // console.log('STATE!!!', { ytstate: YT.PlayerState, duration, playerState, player: event.target })
-    store.dispatch(setSelectedVideoData(videoData))
+    const index = target.getPlaylistIndex();
+    const { id } = getTrackStateByIndex(index);
+    if (id !== getCurrentTrackIdState()) {
+      store.dispatch(setCurrentTrackId(id));
+    }
+    const detail = {
+      videoData,
+      index,
+      buffering: data === YT.PlayerState.BUFFERING,
+      playing: data === YT.PlayerState.PLAYING,
+    }
+    const playingevent = new CustomEvent(YTPLAYEREVENT, { detail });
+    window.dispatchEvent(playingevent);
   }
-  // console.log('yt_iframe_api.js onPlayerStateChange!!', { ytplayer, videoData })
 }
 
-function isPlayerPlaying() {
-  console.log({ ytplayer })
-  try {
-    return ytplayer.getPlayerState() === YT.PlayerState.PLAYING;
-  } catch (e) {
-    console.warn('Error:', e);
-    return false;
-  }
-}
-
-
-const getPlayerDataWithTimeout = async () => {
-  let intervalId;
-  const interval = new Promise((resolve, _) => {
-    intervalId = setInterval(() => {
-      let videoData = ytplayer.getVideoData();
-      if (videoData?.title) {
-        clearInterval(intervalId);
-        if (!videoData.duration) {
-          videoData = { ...videoData, duration: ytplayer.playerInfo?.duration || 1 };
-        }
-        const playing = ytplayer.getPlayerState() === YT.PlayerState.PLAYING
-        return resolve({ playing, videoData })
-      }
-    }, 50);
-  })
-
-  const timeout = new Promise((_, reject) => {
-    const delay = 3000;
-    setTimeout(() => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-      return reject(Error(`getPlayerVideoDataWithTimeout timed out after ${delay}ms.`))
-    }, delay);
-  });
-
-  return Promise.race([interval, timeout])
-};

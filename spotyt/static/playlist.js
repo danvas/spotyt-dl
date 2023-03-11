@@ -3,12 +3,6 @@
 const { useEffect, useState, useRef } = React;
 const { useDispatch } = ReactRedux;
 
-function loadVideoPlayer(videoId) {
-  ytplayer.stopVideo();
-  ytplayer.clearVideo();
-  ytplayer.loadVideoById(videoId); // TODO: Load or cue? Cue won't start video automatically
-}
-
 const Spinner = ({ label, type = 'border', classList = [], style = {} }) => {
   let className = `spinner-${type}`;
   classList.forEach((c) => {
@@ -26,36 +20,42 @@ const Spinner = ({ label, type = 'border', classList = [], style = {} }) => {
 }
 
 
-const PlaybackButton = ({ playing, loading, togglePlayback }) => {
+const PlaybackButton = ({ playing, loading, onClick }) => {
   const playpause = playing ? 'pause' : 'play';
   return (
     <button
-      onClick={togglePlayback}
+      onClick={onClick}
       type="button" className="btn btn-danger" disabled={false}>
       {loading ? <Spinner classList={['spinner-border-sm',]} /> : <i className={`bi bi-${playpause}-circle`}></i>}
     </button>
   )
 }
 
-function VideoSelector({ id, name, artist, duration, album, progressCallback }) {
+function VideoSelector({ id, name, artist, duration, album, progressCallback, currentVideo }) {
   const [loading, setLoading] = useState(false);
   const [videoIds, setVideoIds] = useState([]);
-  const [currentVideoId, setCurrentVideoId] = useState(null);
+  const [selectedVideoId, setSelectedVideoId] = useState(null);
   const [videos, setVideos] = useState({});
+  // TODO: Finish local isPlaying state!
   const [isPlaying, setIsPlaying] = useState(false);
   const dispatch = useDispatch();
 
-  const updateVideosPlayingState = () => {
-    getPlayerDataWithTimeout()
-      .then(({ playing, videoData }) => {
-        setIsPlaying(playing);
-        if (!(videoData.video_id in videos)) {
-          // console.log('!!! getPlayerDataWithTimeout', { playing, currentVideoId, videoData })
-          setVideos({ ...videos, [videoData.video_id]: videoData })
-        }
-      })
-      .catch((err) => { console.warn({ err }) })
+  const playerEventHandler = ({ detail }) => {
+    const trackId = getTrackStateByIndex(detail.index).id;
+    if (trackId === id) {
+      setIsPlaying(detail.playing);
+    } else {
+      setIsPlaying(false);
+    }
   }
+
+  useEffect(() => {
+    window.addEventListener(YTPLAYEREVENT, playerEventHandler);
+
+    return () => {
+      window.removeEventListener(YTPLAYEREVENT, playerEventHandler);
+    };
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -64,10 +64,7 @@ function VideoSelector({ id, name, artist, duration, album, progressCallback }) 
       .then(data => {
         setVideoIds(data.payload);
         dispatch(setSelectedVideoIds({ trackId: id, videoId: data.payload[0] }))
-        const { playlist } = store.getState();
-        if (currentVideoId === null && id === playlist.currentTrackId) {
-          setCurrentVideoId(data.payload[0]);
-        }
+        setSelectedVideoId(data.payload[0]);
       })
       .catch((error) => {
         console.error('Error:', error);
@@ -78,45 +75,50 @@ function VideoSelector({ id, name, artist, duration, album, progressCallback }) 
       });
   }, []);
 
+
   useEffect(() => {
-    const { playlist } = store.getState();
-    if (currentVideoId) {
-      if (id !== playlist.currentTrackId) {
-        dispatch(setCurrentTrackId(id))
+    if (selectedVideoId) {
+      dispatch(setSelectedVideoIds({ trackId: id, videoId: selectedVideoId }))
+      if (id === getCurrentTrackIdState()) {
+        const selectedVideoIds = getSelectedVideoIdsState()
+        const index = getTrackStateIndexById(id);
+        ytplayer.loadPlaylist(selectedVideoIds, index);
       }
-      dispatch(setSelectedVideoIds({ trackId: id, videoId: currentVideoId }))
-      loadVideoPlayer(currentVideoId);
-      updateVideosPlayingState();
     }
-  }, [currentVideoId]);
+  }, [selectedVideoId]);
 
-  const onClickVideoItem = (e) => {
-    setCurrentVideoId(e.target.id);
+  useEffect(() => {
+    setVideos({ ...videos, [currentVideo.video_id]: currentVideo });
+    if (currentVideo.video_id in videoIds) {
+      setSelectedVideoId(currentVideo.video_id);
+    }
+  }, [currentVideo.video_id]);
+
+  const onClickPlayback = () => {
+    const index = getTrackStateIndexById(id);
+    if (id !== getCurrentTrackIdState()) {
+      dispatch(setCurrentTrackId(id));
+      ytplayer.playVideoAt(index);
+    }
+    isPlaying ? ytplayer.pauseVideo() : ytplayer.playVideo();
   }
 
-  const toggleVideoPlayback = () => {
-    // FIXME: Load new video clicked on different track!
-    if (isPlaying) {
-      setIsPlaying(false);
-      ytplayer.pauseVideo();
-    } else {
-      ytplayer.playVideo();
-      setIsPlaying(true);
-    }
+  const onClickVideoItem = (videoId) => {
+    dispatch(setCurrentTrackId(id));
+    setSelectedVideoId(videoId);
   }
 
-  // FIXME: PlaybackButton width should be fixed
   return (
-    <div className="btn-group">
-      <PlaybackButton playing={isPlaying} loading={loading} togglePlayback={toggleVideoPlayback} />
+    <div className="btn-group p-2">
+      <PlaybackButton playing={isPlaying} loading={loading} onClick={onClickPlayback} />
       <button
         type="button"
-        className="btn btn-outline-primary dropdown-toggle"
+        className="btn btn-outline-primary dropdown-toggle text-truncate"
         data-bs-toggle="dropdown"
       >
-        <span className="d-inline-block text-truncate" style={{ maxWidth: "90px" }}>
-          {loading ? "Searching..." : videos[currentVideoId]?.title || videoIds[0]}
-        </span>
+        <small>
+          {loading ? "Searching..." : videos[selectedVideoId]?.title || selectedVideoId || videoIds[0]}
+        </small>
       </button>
       <ul className="dropdown-menu">
         {loading ?
@@ -127,11 +129,14 @@ function VideoSelector({ id, name, artist, duration, album, progressCallback }) 
             const duration = toMinutesAndSeconds(videoData?.duration || 0)
             const title = videoData ? `${videoData.title} (${duration})` : videoId
             return (
-              <li key={videoId}>
-                <a id={videoId} className="dropdown-item" href="#" onClick={onClickVideoItem}>
-                  {title}
-                </a>
-              </li>
+              <div key={videoId}>
+                <li>
+                  <a id={videoId} className="dropdown-item text-wrap" href="#" onClick={() => onClickVideoItem(videoId)}>
+                    {title}
+                  </a>
+                </li>
+                <li><hr className="dropdown-divider" /></li>
+              </div>
             );
           }
           )
@@ -142,7 +147,7 @@ function VideoSelector({ id, name, artist, duration, album, progressCallback }) 
 }
 
 
-function TrackCard({ track, progressCallback, onRemoveTrack }) {
+function TrackCard({ track, progressCallback, onRemoveTrack, currentVideo }) {
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef(null);
 
@@ -182,7 +187,7 @@ function TrackCard({ track, progressCallback, onRemoveTrack }) {
           <span> {track.name} ({track.duration ? toMinutesAndSeconds(track.duration) : track.duration})</span>
         </p>
       </div>
-      <VideoSelector {...track} progressCallback={progressCallback} />
+      <VideoSelector {...track} progressCallback={progressCallback} currentVideo={currentVideo} />
     </div>
 
   )
@@ -193,7 +198,27 @@ function Playlist({ playlistId }) {
   const [playlist, setPlaylist] = useState({});
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [currentVideo, setCurrentVideo] = useState({});
+  const [currentIndex, setCurrentIndex] = useState(0);
   const dispatch = useDispatch()
+
+  const playerEventHandler = ({ detail }) => {
+    setPlaying(detail.playing);
+    setCurrentIndex(detail.index);
+    setCurrentVideo(detail.videoData);
+    setIsBuffering(detail.buffering);
+  }
+
+  useEffect(() => {
+    window.addEventListener(YTPLAYEREVENT, playerEventHandler);
+
+    // cleanup this component
+    return () => {
+      window.removeEventListener(YTPLAYEREVENT, playerEventHandler);
+    };
+  }, []);
 
   useEffect(() => {
     console.log('fetching playlist', playlistId)
@@ -208,23 +233,42 @@ function Playlist({ playlistId }) {
       .then((data) => {
         setPlaylist(data.payload);
         dispatch(setTracks(data.payload.tracks));
-        dispatch(setCurrentTrackId(data.payload.tracks[0].id));
       })
       .catch((error) => { console.error(error) })
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const { selectedVideoIds } = getPlaylistState();
+    if (selectedVideoIds?.length === 1) {
+      console.log('cueing first video!!')
+      ytplayer.cuePlaylist(selectedVideoIds);
+    }
+
+    if (!!progress && progress === tracks.length) {
+      const startPlay = playing;
+      console.log('progress complete!')
+      ytplayer.cuePlaylist(selectedVideoIds)
+      if (startPlay) {
+        ytplayer.playVideoAt(currentIndex);
+      }
+    }
+  }, [progress])
+
+
   const downloadVideos = () => {
-    const state = store.getState();
-    console.log('downloading tracks:', state.playlist.selectedVideoIds)
+    const ids = getSelectedVideoIdsState();
+    console.log('downloading tracks:', ids)
+    window.alert(`Downloading ${ids.length} tracks: ${ids}`);
   }
 
   const skipForward = () => {
-    console.log('skip forward')
+    ytplayer.nextVideo();
+
   }
 
   const skipBackward = () => {
-    console.log('skip backward')
+    ytplayer.previousVideo();
   }
 
   const removeTrack = (id) => {
@@ -233,30 +277,20 @@ function Playlist({ playlistId }) {
     setPlaylist({ ...playlist, tracks: updatedTracks });
   }
 
-  const toggleVideo = () => {
-    const { width, height } = ytplayer.getSize();
-    console.log({ width, height, ytplayer, hidden: ytplayer.h.hidden })
-    if (width === 0) {
-      ytplayer.setSize(640, 360);
-      return
-    }
-    // ytplayer.setSize(0, 0);
-    if (ytplayer.h.hidden) {
-      ytplayer.h.hidden = false;
-    } else {
-      ytplayer.h.hidden = true;
-    }
-  }
-
-  const getSelectedVideoIdsLength = () => {
-    const state = store.getState();
-    const count = state.playlist.selectedVideoIds.length;
+  const onVideoIdsCount = () => {
+    const count = getSelectedVideoIdsState().length;
     setProgress(count);
   }
 
-  const tracks = playlist.tracks?.slice(0, 3) || [];
-  const inProgress = progress === 0 || progress < tracks.length
+  const togglePlayback = () => {
+    playing ? ytplayer.pauseVideo() : ytplayer.playVideo();
+  }
 
+  const tracks = playlist.tracks || [];
+  const inProgress = progress === 0 || progress < tracks.length
+  let currentVideoTitle = currentVideo.title ? `${currentIndex + 1}. ` : '';
+  currentVideoTitle += currentVideo.title || '';
+  currentVideoTitle += currentVideo.duration ? ` (${toMinutesAndSeconds(currentVideo.duration)})` : '';
   return (
     <div className="pt-4 container">
       <a className="h4 text-primary text-decoration-none" href={`/${user.id}`}>{user.display_name}</a>
@@ -264,9 +298,9 @@ function Playlist({ playlistId }) {
       <div className="d-flex flex-row">
         <div className="p-2 align-self-center">
           <div className="btn-group" role="group" aria-label="Playback Controller">
-            <button type="button" className="btn btn-outline-primary" disabled={!progress}><i className="bi bi-skip-backward"></i></button>
-            <button type="button" className="btn btn-outline-primary" disabled={!progress}><i className="bi bi-play"></i></button>
-            <button type="button" onClick={skipForward} className="btn btn-outline-primary" disabled={progress < 2}><i className="bi bi-skip-forward"></i></button>
+            <button type="button" className="btn btn-outline-primary btn-lg" onClick={skipBackward} disabled={!progress || !currentIndex}><i className="bi bi-skip-backward"></i></button>
+            <button type="button" className="btn btn-outline-primary btn-lg" onClick={togglePlayback} disabled={!progress || isBuffering}><i className={`bi bi-${playing ? 'pause' : 'play'}-fill`}></i></button>
+            <button type="button" className="btn btn-outline-primary btn-lg" onClick={skipForward} disabled={progress < 2 || currentIndex === tracks.length - 1}><i className="bi bi-skip-forward"></i></button>
           </div>
         </div>
         <div className="p-2 align-self-center flex-fill">
@@ -289,13 +323,17 @@ function Playlist({ playlistId }) {
           </button>
         </div>
       </div>
+
+      <div className="p-2">{currentVideoTitle}</div>
+
       <div className="d-flex flex-wrap">
         {tracks.map((track) =>
           <TrackCard
             key={track.id}
             onRemoveTrack={() => removeTrack(track.id)}
             track={track}
-            progressCallback={getSelectedVideoIdsLength}
+            progressCallback={onVideoIdsCount}
+            currentVideo={currentVideo}
           />)}
       </div>
     </div>

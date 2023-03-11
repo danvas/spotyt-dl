@@ -6,7 +6,10 @@ function fetchPlaylist(id) {
 
 function getCurrentUser() {
   return fetch("/api/me")
-    .then((response) => response.json());
+    .then((response) => response.json())
+    .catch((error) => {
+      console.error('Error:', error);
+    });
 }
 
 
