@@ -63,7 +63,7 @@ function VideoSelector({ id, name, artist, duration, album, progressCallback, cu
       .then(response => response.json())
       .then(data => {
         setVideoIds(data.payload);
-        dispatch(setSelectedVideoIds({ trackId: id, videoId: data.payload[0] }))
+        dispatch(setSelectedVideoIdByTrack({ trackId: id, videoId: data.payload[0] }))
         setSelectedVideoId(data.payload[0]);
       })
       .catch((error) => {
@@ -78,7 +78,7 @@ function VideoSelector({ id, name, artist, duration, album, progressCallback, cu
 
   useEffect(() => {
     if (selectedVideoId) {
-      dispatch(setSelectedVideoIds({ trackId: id, videoId: selectedVideoId }))
+      dispatch(setSelectedVideoIdByTrack({ trackId: id, videoId: selectedVideoId }))
       if (id === getCurrentTrackIdState()) {
         const selectedVideoIds = getSelectedVideoIdsState()
         const index = getTrackStateIndexById(id);
@@ -166,9 +166,9 @@ function TrackCard({ track, progressCallback, onRemoveTrack, currentVideo }) {
   // TODO: Finish onRemoveTrack functionality
   return (
     <div className="card" style={{ width: "12rem", margin: "5px" }}>
-      {/* <div className="position-relative">
+      {onRemoveTrack && <div className="position-relative">
         <button onClick={onRemoveTrack} type="button" className=" btn-close position-absolute top-0 end-0" aria-label="Close"></button>
-      </div> */}
+      </div>}
       <img src={track.album_img_url} className="card-img-top" alt={track.album_img_url} />
 
       <div className="card-body">
@@ -272,9 +272,22 @@ function Playlist({ playlistId }) {
   }
 
   const removeTrack = (id) => {
-    console.log('removing track!', { id, playlist })
+    const index = getTrackStateIndexById(id);
+    const selectedVideoIds = getSelectedVideoIdsState();
+    const updatedVideoIds = selectedVideoIds.filter((_, idx) => index !== idx);
+    console.log('Removing track!', { updatedVideoIds, playing, index, id, currentVideo })
+    dispatch(setSelectedVideoIds(updatedVideoIds));
     const updatedTracks = playlist.tracks.filter((track) => track.id !== id);
     setPlaylist({ ...playlist, tracks: updatedTracks });
+    dispatch(setTracks(updatedTracks));
+    let idx = updatedVideoIds.indexOf(currentVideo.video_id);
+    idx = idx === -1 ? index : idx;
+    console.log({ idx, playing })
+    if (playing) {
+      ytplayer.loadPlaylist(updatedVideoIds, idx);
+    } else {
+      ytplayer.cuePlaylist(updatedVideoIds, idx);
+    }
   }
 
   const onVideoIdsCount = () => {
@@ -330,7 +343,7 @@ function Playlist({ playlistId }) {
         {tracks.map((track) =>
           <TrackCard
             key={track.id}
-            onRemoveTrack={() => removeTrack(track.id)}
+            onRemoveTrack={!inProgress && (() => removeTrack(track.id))}
             track={track}
             progressCallback={onVideoIdsCount}
             currentVideo={currentVideo}

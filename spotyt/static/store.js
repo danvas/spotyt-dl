@@ -15,18 +15,22 @@ const playlistSlice = createSlice({
     setCurrentTrackId: (state, action) => {
       state.currentTrackId = action.payload
     },
-    setSelectedVideoIds: (state, action) => {
+    setSelectedVideoIdByTrack: (state, action) => {
       const { trackId, videoId } = action.payload;
       const idx = state.tracks.findIndex(({ id }) => id === trackId);
       if (state.selectedVideoIds[idx] !== videoId) {
         state.selectedVideoIds[idx] = videoId;
       }
     },
+    setSelectedVideoIds: (state, action) => {
+      state.selectedVideoIds = action.payload;
+    },
   }
 });
 
 const {
   setSelectedVideoIds,
+  setSelectedVideoIdByTrack,
   setCurrentTrackId,
   setTracks
 } = playlistSlice.actions;
