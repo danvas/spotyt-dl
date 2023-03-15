@@ -23,5 +23,32 @@ dependencies = [
   "uvicorn[standard] == 0.20.0",
   "uvloop == 0.17.0",
   "ytmusicapi == 0.25.0",
+  "youtube-dl == 2021.12.17",
 ]
-dynamic = ["version"]
+dynamic =["version" ]
+
+[tool.setuptools.dynamic]
+version = {attr = "spotyt.__version__"}
+
+[project.optional-dependencies]
+dev = [
+    "black >= 23.1.0",
+]
+
+[tool.black]
+line-length = 88
+target_version = ['py310']
+include = '\.pyi?$'
+exclude = '''
+
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.venv
+    | _build
+    | build
+    | dist
+  )/
+)
+'''
