@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from pprint import pprint
 from pydantic import BaseModel
 from typing import List, Optional
+from functools import lru_cache
 from fastapi import FastAPI, Request, Query
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -9,12 +10,18 @@ from fastapi.templating import Jinja2Templates
 import uvicorn
 from spotyt.services import spotify, youtube
 from spotyt.services.spotify import TrackKeys
+from spotyt.config import Settings, RuntimeMode
 
 import time
 
 load_dotenv()
 
 app = FastAPI()
+
+@lru_cache()
+def get_settings():
+    return Settings()
+
 app.mount(
     "/static",
     StaticFiles(directory="spotyt/static", check_dir=True),
@@ -101,6 +108,9 @@ async def read_public_note(request: Request):
     return templates.TemplateResponse("index.html", context)
 
 if __name__ == '__main__':
-
-    kwargs = {"reload": True}
+    settings = get_settings()
+    kwargs = {
+        "reload": settings.mode == RuntimeMode.development
+    }
+    pprint({"settings": settings, "kwargs": kwargs})
     uvicorn.run("spotyt.main:app", **kwargs)
