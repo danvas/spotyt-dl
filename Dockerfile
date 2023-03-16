@@ -14,6 +14,8 @@ ENV SPOTIPY_CLIENT_SECRET=$spotify_client_secret
 
 ENV SPOTIPY_REDIRECT_URI=$spotify_redirect_uri
 
+ENV MODE=production
+
 RUN python -m venv $VIRTUAL_ENV
 
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
@@ -34,4 +36,4 @@ RUN pip install --no-cache-dir -e .
 
 RUN ls -la /app-root
 
-CMD ["uvicorn", "spotyt.main:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["python", "-m", "spotyt.main"]

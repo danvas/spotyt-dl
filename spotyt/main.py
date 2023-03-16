@@ -106,7 +106,9 @@ async def read_public_note(request: Request):
 if __name__ == '__main__':
     settings = get_settings()
     kwargs = {
-        "reload": settings.mode == RuntimeMode.development
+        "reload": settings.mode == RuntimeMode.development,
+        "port": 80,
+        "host": "0.0.0.0",
     }
     pprint({"settings": settings, "kwargs": kwargs})
     uvicorn.run("spotyt.main:app", **kwargs)
