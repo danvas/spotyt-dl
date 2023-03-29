@@ -74,7 +74,7 @@ async def search_youtube_videos(
 async def get_current_user():
     return spotify.get_current_user()
 
-@app.get("/{user_id}", response_class=HTMLResponse)
+@app.get("/playlists/{user_id}", response_class=HTMLResponse)
 async def read_item(request: Request, user_id: str):
     playlists = spotify.get_playlists(user_id)
     context = {

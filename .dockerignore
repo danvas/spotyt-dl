@@ -7,3 +7,7 @@
 Dockerfile
 db.sqlite3
 **/*.md
+.venv
+**/*.egg-info
+.cache
+.env

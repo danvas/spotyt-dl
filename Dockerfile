@@ -1,12 +1,10 @@
-FROM python:3.10.9-alpine3.17
+FROM tiangolo/uvicorn-gunicorn:python3.10
 
 ARG spotify_client_id
 
 ARG spotify_client_secret
 
 ARG spotify_redirect_uri
-
-ENV VIRTUAL_ENV=/opt/.venv
 
 ENV SPOTIPY_CLIENT_ID=$spotify_client_id
 
@@ -16,9 +14,9 @@ ENV SPOTIPY_REDIRECT_URI=$spotify_redirect_uri
 
 ENV MODE=production
 
-RUN python -m venv $VIRTUAL_ENV
+ENV ACCESS_LOG=${ACCESS_LOG:-/proc/1/fd/1}
 
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV ERROR_LOG=${ERROR_LOG:-/proc/1/fd/2}
 
 RUN env
 
@@ -32,8 +30,12 @@ COPY ./ /app-root
 
 RUN pip install --upgrade pip
 
+RUN pip --version
+
 RUN pip install --no-cache-dir -e .
+
+RUN which gunicorn
 
 RUN ls -la /app-root
 
-CMD ["python", "-m", "spotyt.main"]
+ENTRYPOINT /usr/local/bin/gunicorn -b 0.0.0.0:80 -w 4 -k uvicorn.workers.UvicornWorker spotyt.main:app --chdir .
