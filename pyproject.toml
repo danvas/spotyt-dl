@@ -24,6 +24,9 @@ dependencies = [
   "uvloop == 0.17.0",
   "ytmusicapi == 0.25.0",
   "youtube-dl == 2021.12.17",
+  "itsdangerous == 2.1.2",
+  "Authlib == 1.2.0",
+  "httpx == 0.23.3",
 ]
 dynamic =["version" ]
 
