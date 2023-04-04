@@ -1,53 +1,47 @@
+import uvicorn
+import os 
+import time
+from authlib.common.security import generate_token
+from authlib.integrations.starlette_client import OAuth, OAuthError
 from dotenv import load_dotenv
 from pprint import pprint
 from pydantic import BaseModel
 from typing import List, Optional
 from functools import lru_cache
 from fastapi import FastAPI, Request, Query, logger
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import uvicorn
+from starlette.middleware.sessions import SessionMiddleware
 from spotyt.services import spotify, youtube
 from spotyt.services.spotify import TrackKeys
 from spotyt.config import Settings, RuntimeMode
 from spotyt import auth
-from authlib.integrations.requests_client import OAuth2Session
-import requests
-import time
-from fastapi.responses import RedirectResponse
-import os 
-
-from starlette.middleware.sessions import SessionMiddleware
-# from starlette.requests import Request
-# from starlette.responses import JSONResponse
 
 load_dotenv()
-
-app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=auth.generate_random_string(16))
 
 client_id = os.getenv('SPOTIPY_CLIENT_ID')
 client_secret = os.getenv('SPOTIPY_CLIENT_SECRET')
 redirect_uri = os.getenv('SPOTIPY_REDIRECT_URI')
-pprint({"client_id": client_id, "client_secret": client_secret, "redirect_uri": redirect_uri})
-# OAuth endpoints given in the Spotify API documentation
-# https://developer.spotify.com/documentation/general/guides/authorization/code-flow/
-authorization_base_url = "https://accounts.spotify.com/authorize"
-token_url = "https://accounts.spotify.com/api/token"
-# https://developer.spotify.com/documentation/general/guides/authorization/scopes/
 scope = ["user-read-email", "playlist-read-collaborative", "user-read-currently-playing"]
-
-
-client_id = os.getenv('SPOTIFY_CLIENT_ID')
-redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI')
-scope = ["user-read-email", "playlist-read-collaborative", "user-read-currently-playing"]
-spotify = OAuth2Session(
-    client_id,
-    redirect_uri=redirect_uri,
-    scope=scope,
-    code_challenge_method="S256"
+spotify_client_kwargs = {
+        "scope": " ".join(scope),
+        "redirect_uri": redirect_uri,
+        "code_challenge_method": "S256"
+}
+oauth = OAuth()
+oauth.register(
+    name='spotify',
+    client_id = client_id,
+    client_kwargs = spotify_client_kwargs,
+    api_base_url='https://api.spotify.com/v1/',
+    access_token_url=auth.SPOTIFY_TOKEN_ENDPOINT,
+    authorize_url=auth.SPOTIFY_AUTHORIZE_ENDPOINT,
 )
+
+app = FastAPI()
+app.add_middleware(SessionMiddleware, secret_key=auth.generate_random_string(16))
+
 
 @lru_cache()
 def get_settings():
@@ -61,6 +55,18 @@ app.mount(
 )
 
 templates = Jinja2Templates(directory="spotyt/templates")
+
+@app.get('/')
+async def homepage(request: Request):
+    user = request.session.get("user")
+    user_id = user.get("id") if user else None
+    if user_id:
+        html = (
+            f'<pre>{user_id}</pre>'
+            '<a href="/logout">logout</a>'
+        )
+        return HTMLResponse(html)
+    return HTMLResponse('<a href="/login">login</a>')
 
 @app.get("/viewsession")
 async def view_session(request: Request) -> JSONResponse:
@@ -106,6 +112,22 @@ async def search_youtube_videos(
         "timeElapsedSeconds": end - start,
     }
 
+@app.get("/api/current_song")
+async def get_current_song(request: Request):
+    auth_token = request.session.get("auth_token") # TODO: Get OAuth2Token from oauth.spotify client instead!
+    response = await oauth.spotify.get("me/player/currently-playing", token=auth_token)
+    try:
+        current_song = response.json()
+        artist_name = current_song['item']['artists'][0]['name']
+        song_name = current_song['item']['name']
+    except Exception as e:
+        print(e)
+        current_song = response.content
+        song_name = ""
+        artist_name = ""
+        return {"error": e}
+    return {"artist_name": artist_name, "song_name": song_name}
+
 @app.get("/api/me")
 async def get_current_user():
     return spotify.get_current_user()
@@ -137,74 +159,43 @@ def download_playlist(request: Request, playlist_id: str):
 
     return templates.TemplateResponse("playlist.html", context)
 
-
-
-def get_headers(token):
-    return {"Authorization": "Bearer " + token}
-
 @app.get("/login")
 async def login(request: Request):
-    print('login accessed')
-
-
-    code_verifier = auth.generate_random_string(128)
-    request.session.update({"code_verifier": code_verifier})
-    authorization_url, state = spotify.create_authorization_url(
-        auth.SPOTIFY_AUTHORIZE_ENDPOINT,
+    code_verifier = generate_token(128)
+    request.session.update({"code_verifier": code_verifier}) # TODO: Define model for session
+    auth_state = await oauth.spotify.create_authorization_url(
+        redirect_uri,
         code_verifier=code_verifier
     )
-    return RedirectResponse(authorization_url)
 
-# Your redirect URI's path
-# http://localhost:3000/callback?code=AQDTZDK66wl...se8A1YTe&state=kt4H....963Nd
-@app.get("/callback2")
-def callback(code: str):
-    # get access token
-    resp = requests.post(token_url,
-        auth=(client_id, client_secret),
-        data={
-            'grant_type': 'authorization_code',
-            'code': code,
-            'redirect_uri': redirect_uri
-        })
-    access_token = resp.json()['access_token']
-    if not access_token:
-        return {"error":'No access token available'}
-    # get current playing
-    headers = get_headers(access_token)
-    result1 = requests.get(url='https://api.spotify.com/v1/me/player/currently-playing', headers=headers)
-    current_song = result1.json()
-    result2 = requests.get(url='https://api.spotify.com/v1/me')
-    me = result2.json()
-    return {"current_song": current_song, "me": me}
+    return RedirectResponse(auth_state["url"])
 
 @app.get("/callback")
-def callback(request: Request, code: str):
+async def callback(request: Request, code: str):
     code_verifier = request.session.get("code_verifier")
     if not code_verifier:
         raise Exception("code_verifier not found")
-    print(f"!!! authorization reqponse: {request.url}")
-    auth_token = spotify.fetch_token(
-        auth.SPOTIFY_TOKEN_ENDPOINT,
+    auth_token = await oauth.spotify.fetch_access_token(
         authorization_response=str(request.url),
         code_verifier=code_verifier,
     )
-    pprint(auth_token)
     request.session.update({"auth_token": auth_token})
-        # Fetch a protected resource, i.e. user profile
-    r = spotify.get('https://api.spotify.com/v1/me')
-    me = r.json()
-    r = spotify.get('https://api.spotify.com/v1/me/player/currently-playing')
-    try:
-        current_song = r.json()
-        artist_name = current_song['item']['artists'][0]['name']
-        song_name = current_song['item']['name']
-    except Exception as e:
-        print(e)
-        current_song = r.content
-        song_name = ""
-        artist_name = ""
-    return {"artist_name": artist_name, "song_name": song_name, "me": me}
+    print(f"type(auth_token) = {type(auth_token)}")
+    pprint(dir(auth_token))
+    # Fetch a protected resource, i.e. user profile
+    r = await oauth.spotify.get("me", token=auth_token)
+    current_user = r.json()
+    request.session.update({"user": current_user})
+
+    return RedirectResponse("/api/current_song")
+
+@app.get('/logout')
+async def logout(request):
+    request.session.pop("user", None)
+    request.session.pop("code_verifier", None)
+    request.session.pop("auth_token", None)
+    return RedirectResponse(url='/')
+
 
 if __name__ == '__main__':
     settings = get_settings()

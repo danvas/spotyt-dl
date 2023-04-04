@@ -59,8 +59,10 @@ from dotenv import load_dotenv
 import os
 import random
 from typing import List
-from authlib.integrations.starlette_client import OAuth, OAuthError
 
+# OAuth endpoints given in the Spotify API documentation
+# https://developer.spotify.com/documentation/general/guides/authorization/code-flow/
+# https://developer.spotify.com/documentation/general/guides/authorization/scopes/
 SPOTIFY_AUTHORIZE_ENDPOINT = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token"
 
