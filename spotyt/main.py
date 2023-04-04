@@ -40,7 +40,7 @@ oauth.register(
 )
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=auth.generate_random_string(16))
+app.add_middleware(SessionMiddleware, secret_key=generate_token(16))
 
 
 @lru_cache()
