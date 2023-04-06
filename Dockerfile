@@ -8,9 +8,13 @@ ARG spotify_redirect_uri
 
 ENV SPOTIPY_CLIENT_ID=$spotify_client_id
 
+ENV SPOTIFY_CLIENT_ID=$spotify_client_id
+
 ENV SPOTIPY_CLIENT_SECRET=$spotify_client_secret
 
 ENV SPOTIPY_REDIRECT_URI=$spotify_redirect_uri
+
+ENV SPOTIFY_REDIRECT_URI=$spotify_redirect_uri
 
 ENV MODE=production
 

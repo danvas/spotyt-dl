@@ -1,4 +1,6 @@
 import uvicorn
+import logging
+import sys
 import time
 from authlib.common.security import generate_token
 from dotenv import load_dotenv
@@ -6,21 +8,30 @@ from pprint import pprint
 from pydantic import BaseModel
 from typing import List, Optional
 from functools import lru_cache
-from fastapi import FastAPI, Request, Query, logger
+from fastapi import FastAPI, Request, Query
+from fastapi.logger import logger
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 from spotyt.services import spotify, youtube
 from spotyt.services.spotify import TrackKeys
 from spotyt.config import Settings, RuntimeMode
 from spotyt.auth import oauth, spotify_redirect_uri
 
+logger.addHandler(logging.StreamHandler(sys.stdout))
+logger.setLevel(logging.DEBUG)
+
 load_dotenv()
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=generate_token(16))
 
+@app.exception_handler(StarletteHTTPException)
+async def requests_http_exception_handler(request, exc):
+    return await http_exception_handler(request, exc)
 
 @lru_cache()
 def get_settings():
@@ -101,12 +112,8 @@ async def search_youtube_videos(
 
 @app.get("/api/current_song")
 async def get_current_song(request: Request):
-     # TODO: Get OAuth2Token from oauth.spotify client instead?
-    auth_token = request.session.get("auth_token")
-    if not auth_token:
-        return RedirectResponse("/login")
     # TODO: Investigate refreshing token
-    response = await oauth.spotify.get("me/player/currently-playing", token=auth_token)
+    response = await oauth.spotify.get("me/player/currently-playing", request=request)
     if response.status_code == 204:
         return {"artist_name": None, "song_name": None}
     
@@ -159,13 +166,14 @@ async def authorize(request: Request):
     request.session.update({"auth_token": token})
     # Fetch a protected resource, i.e. user profile
     r = await oauth.spotify.get("me", token=token)
+    r.raise_for_status()
     current_user = r.json()
     request.session.update({"user": current_user})
 
     return RedirectResponse("/api/current_song")
 
 @app.get('/logout')
-async def logout(request):
+async def logout(request: Request):
     try:
         request.session.pop("user", None)
         request.session.pop("auth_token", None)
