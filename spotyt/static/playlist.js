@@ -59,6 +59,7 @@ function VideoSelector({ id, name, artist, duration, album, progressCallback, cu
 
   useEffect(() => {
     setLoading(true);
+    // TODO: Stop searching when user escapes loading browser
     searchYoutubeVideos(name, artist, duration, album)
       .then(response => response.json())
       .then(data => {
@@ -224,14 +225,13 @@ function Playlist({ playlistId }) {
     console.log('fetching playlist', playlistId)
     setLoading(true);
 
-    getCurrentUser().then(setUser);
-
     fetchPlaylist(playlistId)
       .then((response) => {
         return response.json();
       })
       .then((data) => {
         setPlaylist(data.payload);
+        setUser(data.payload.owner);
         dispatch(setTracks(data.payload.tracks));
       })
       .catch((error) => { console.error(error) })
@@ -254,7 +254,6 @@ function Playlist({ playlistId }) {
       }
     }
   }, [progress])
-
 
   const downloadVideos = () => {
     const ids = getSelectedVideoIdsState();
@@ -306,7 +305,7 @@ function Playlist({ playlistId }) {
   currentVideoTitle += currentVideo.duration ? ` (${toMinutesAndSeconds(currentVideo.duration)})` : '';
   return (
     <div className="pt-4 container">
-      <a className="h4 text-primary text-decoration-none" href={`/${user.id}`}>{user.display_name}</a>
+      <a className="h4 text-primary text-decoration-none" href={`/playlists/${user.id}`}>{user.display_name}</a>
       {loading ? <Spinner type="grow" label="Loading..." /> : <h1 className="display-5"> {playlist?.name}</h1>}
       <div className="d-flex flex-row">
         <div className="p-2 align-self-center">

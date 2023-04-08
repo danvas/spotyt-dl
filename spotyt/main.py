@@ -17,9 +17,9 @@ from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 from spotyt.services import spotify, youtube
+from spotyt.auth import oauth, spotify_redirect_uri
 from spotyt.services.spotify import TrackKeys
 from spotyt.config import Settings, RuntimeMode
-from spotyt.auth import oauth, spotify_redirect_uri
 
 logger.addHandler(logging.StreamHandler(sys.stdout))
 logger.setLevel(logging.DEBUG)
@@ -53,6 +53,7 @@ async def homepage(request: Request):
     if user_id:
         html = (
             f'<pre>{user_id}</pre>'
+            f'<div><a href="/playlists/{user_id}">my playlists</a></div>'
             '<a href="/logout">logout</a>'
         )
         return HTMLResponse(html)
@@ -71,14 +72,15 @@ async def view_session(request: Request) -> JSONResponse:
     return request.session
 
 @app.get("/api/playlist/{playlist_id}/")
-def get_playlist_tracks(
+async def get_playlist_tracks(
+    request: Request,
     playlist_id: str,
     fkey: Optional[List[TrackKeys]] = Query(default=None)
 ):
     """Get a Spotify playlist owned by a Spotify user.
     """
     start = time.time()
-    playlist_payload = spotify.get_playlist_tracks(playlist_id, filter=fkey)
+    playlist_payload = await spotify.get_playlist_tracks(request, playlist_id, filter=fkey)
     end = time.time()
     num_tracks = len(playlist_payload['tracks'])
 
@@ -113,7 +115,7 @@ async def search_youtube_videos(
 @app.get("/api/current_song")
 async def get_current_song(request: Request):
     # TODO: Investigate refreshing token
-    response = await oauth.spotify.get("me/player/currently-playing", request=request)
+    response = await oauth.spotify.get("/v1/me/player/currently-playing", request=request)
     if response.status_code == 204:
         return {"artist_name": None, "song_name": None}
     
@@ -128,16 +130,19 @@ async def get_current_user():
     return spotify.get_current_user()
 
 @app.get("/api/users/{user_id}")
-async def get_user(user_id: str):
-    return spotify.get_user(user_id)
+async def get_user(request: Request, user_id: str):
+    response = await oauth.spotify.get(f"users/{user_id}", request=request)
+    response.raise_for_status()
+    return response.json()
 
 @app.get("/playlists/{user_id}", response_class=HTMLResponse)
 async def playlists_user(request: Request, user_id: str):
-    user_playlists = spotify.get_playlists(user_id)
+    user = await spotify.fetch_user(request=request)
+    playlist_items = await spotify.get_playlists(request, user_id)
     context = {
-      "request": request,
-      "user": user_playlists.get("user"),
-      "playlists": user_playlists["playlists"].get('items', []),
+        "request": request,
+        "user_id": user.get("id"),
+        "playlists": playlist_items,
     }
 
     if not context['playlists']:
@@ -170,7 +175,7 @@ async def authorize(request: Request):
     current_user = r.json()
     request.session.update({"user": current_user})
 
-    return RedirectResponse("/api/current_song")
+    return RedirectResponse(f"/playlists/{current_user.get('id')}")
 
 @app.get('/logout')
 async def logout(request: Request):

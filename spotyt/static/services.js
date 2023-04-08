@@ -14,6 +14,7 @@ function getCurrentUser() {
 
 
 function searchYoutubeVideos(name, artist, duration, album) {
+  // TODO: Stop searching when user escapes loading browser
   const params = new URLSearchParams()
   if (duration) {
     params.set('duration', duration)
