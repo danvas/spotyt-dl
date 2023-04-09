@@ -234,7 +234,10 @@ function Playlist({ playlistId }) {
         setUser(data.payload.owner);
         dispatch(setTracks(data.payload.tracks));
       })
-      .catch((error) => { console.error(error) })
+      .catch((error) => {
+        console.error(error);
+        // TODO: redirect to login page
+      })
       .finally(() => setLoading(false));
   }, []);
 

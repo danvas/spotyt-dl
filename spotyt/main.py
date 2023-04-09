@@ -17,8 +17,8 @@ from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 from spotyt.services import spotify, youtube
-from spotyt.auth import oauth, spotify_redirect_uri
 from spotyt.services.spotify import TrackKeys
+from spotyt.auth import oauth, spotify_redirect_uri
 from spotyt.config import Settings, RuntimeMode
 
 logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -137,16 +137,17 @@ async def get_user(request: Request, user_id: str):
 
 @app.get("/playlists/{user_id}", response_class=HTMLResponse)
 async def playlists_user(request: Request, user_id: str):
-    user = await spotify.fetch_user(request=request)
-    playlist_items = await spotify.get_playlists(request, user_id)
+    try:
+        user = await spotify.fetch_user(request=request)
+        playlist_items = await spotify.get_playlists(request, user_id)
+    except Exception as e:
+        return templates.TemplateResponse("404.html", {"detail": e.detail, "status_code": e.status_code, "request": request, "user_id": user_id, "playlists": ""})
+
     context = {
         "request": request,
         "user_id": user.get("id"),
         "playlists": playlist_items,
     }
-
-    if not context['playlists']:
-        return FileResponse("404.html")
     return templates.TemplateResponse("user.html", context)
 
 @app.get("/playlist/{playlist_id}", response_class=HTMLResponse)

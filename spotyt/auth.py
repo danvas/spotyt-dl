@@ -23,6 +23,7 @@ spotify_client_id = os.getenv('SPOTIFY_CLIENT_ID')
 spotify_redirect_uri = os.getenv('SPOTIFY_REDIRECT_URI')
 spotify_scope = [
     "user-read-email",
+    "playlist-read-private",
     "playlist-read-collaborative",
     "user-read-currently-playing"
 ]
@@ -35,7 +36,7 @@ spotify_client_kwargs = {
 async def fetch_spotify_token(request: Request):
     if not request.session:
         logger.debug(f"No session found in request: query_params={request.query_params} headers={request.headers} state={request.state} url={request.url}")
-        raise HTTPException(status_code=500, detail="No session found in request. Log in first.")
+        raise HTTPException(status_code=511, detail="No session found in request. Log in first.")
     
     auth_token = request.session.get("auth_token")
     if not auth_token:

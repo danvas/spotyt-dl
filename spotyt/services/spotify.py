@@ -108,7 +108,12 @@ async def get_playlists(request: Request, user_id: str):
 
         user_id: user's spotify ID
     """
-    response = await oauth.spotify.get(f"/v1/users/{user_id}/playlists", request=request)
+    params = {"limit": 50, "offset": 0} # TODO: Add support for pagination
+    response = await oauth.spotify.get(
+        f"/v1/users/{user_id}/playlists",
+        request=request,
+        params=params
+    )
     response.raise_for_status()
     playlists = response.json()
     playlist_items = [pl for pl in playlists['items'] if pl['owner']['id'] == user_id]
