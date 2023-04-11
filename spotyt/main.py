@@ -2,20 +2,27 @@ import uvicorn
 import logging
 import sys
 import time
+
 from authlib.common.security import generate_token
 from dotenv import load_dotenv
 from pprint import pprint
 from pydantic import BaseModel
 from typing import List, Optional
 from functools import lru_cache
-from fastapi import FastAPI, Request, Query
+from fastapi import FastAPI, Request, Query, BackgroundTasks
 from fastapi.logger import logger
 from fastapi.exception_handlers import http_exception_handler
-from fastapi.responses import RedirectResponse, HTMLResponse, FileResponse, JSONResponse
+from fastapi.responses import (
+    RedirectResponse,
+    HTMLResponse,
+    JSONResponse, 
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
+from spotyt import io as spio
 from spotyt.services import spotify, youtube
 from spotyt.services.spotify import TrackKeys
 from spotyt.auth import oauth, spotify_redirect_uri
@@ -186,6 +193,40 @@ async def logout(request: Request):
     except Exception as e:
         print(e)
     return RedirectResponse(url='/')
+
+@app.get("/api/youtube/audio-info")
+async def youtube_audio_info(
+    v: list[str] = Query(default=None),
+    ext: Optional[list[str]] = Query(default=[])
+):
+    infos = spio.extract_audio_infos(v, extensions=ext)
+    return {"data": infos}
+
+
+@app.get("/api/youtube/download", response_class=StreamingResponse)
+async def download_audios(
+    background_tasks: BackgroundTasks,
+    v: list[str] = Query(default=None),
+    ext: Optional[list[str]] = Query(default=[]),
+):
+    try:
+        infos = spio.extract_audio_infos(v, extensions=ext)
+    except Exception as e:
+        print(e)
+        # TODO: Investigate dependency injection using Depends 
+        # to handle `extensions` validation
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    zip_io = spio.zip_audio_files(infos)
+
+    background_tasks.add_task(zip_io.close)
+    # TODO: Download progress hook
+    # TODO: Unblock browser while downloading
+    return StreamingResponse(
+        iter([zip_io.getvalue()]), 
+        media_type="application/x-zip-compressed", 
+        headers = { "Content-Disposition": f"attachment; filename=playlistname.zip"}
+    )
 
 
 if __name__ == '__main__':
