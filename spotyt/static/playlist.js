@@ -258,10 +258,15 @@ function Playlist({ playlistId }) {
     }
   }, [progress])
 
-  const downloadVideos = () => {
+  const downloadSelectedTracks = () => {
     const ids = getSelectedVideoIdsState();
-    console.log('downloading tracks:', ids)
-    window.alert(`Downloading ${ids.length} tracks: ${ids}`);
+    const url = getDownloadUrl({
+      playlistName: playlist?.name,
+      videoIds: ids,
+      extensions: ["m4a"]
+    });
+    console.log('Downloading in url: ', url)
+    window.open(url, '_blank');
   }
 
   const skipForward = () => {
@@ -329,7 +334,7 @@ function Playlist({ playlistId }) {
           }
         </div>
         <div className="p-2">
-          <button onClick={downloadVideos} type="button" className={`btn btn-${inProgress ? 'primary' : 'success'} rounded-pill`}>
+          <button onClick={downloadSelectedTracks} type="button" className={`btn btn-${inProgress ? 'primary' : 'success'} rounded-pill`}>
             {inProgress ?
               <Spinner classList={['spinner-border-sm']} label=" Searching..." />
               :

@@ -53,6 +53,10 @@ app.mount(
 
 templates = Jinja2Templates(directory="spotyt/templates")
 
+# @app.get('/favicon.ico', include_in_schema=False)
+# async def favicon():
+#     return FileResponse("favicon.ico")
+
 @app.get('/')
 async def homepage(request: Request):
     user = request.session.get("user")
@@ -194,8 +198,8 @@ async def logout(request: Request):
         print(e)
     return RedirectResponse(url='/')
 
-@app.get("/api/youtube/audio-info")
-async def youtube_audio_info(
+@app.get("/api/yt/info")
+async def youtube_info(
     v: list[str] = Query(default=None),
     ext: Optional[list[str]] = Query(default=[])
 ):
@@ -203,29 +207,45 @@ async def youtube_audio_info(
     return {"data": infos}
 
 
-@app.get("/api/youtube/download", response_class=StreamingResponse)
-async def download_audios(
+@app.get("/download", response_class=StreamingResponse)
+async def youtube_download(
     background_tasks: BackgroundTasks,
     v: list[str] = Query(default=None),
     ext: Optional[list[str]] = Query(default=[]),
+    fname: Optional[str] = Query(default="spotyt-download"),
 ):
     try:
-        infos = spio.extract_audio_infos(v, extensions=ext)
+        exinfos = spio.extract_audio_infos(v, extensions=ext)
     except Exception as e:
         print(e)
         # TODO: Investigate dependency injection using Depends 
         # to handle `extensions` validation
         return JSONResponse({"error": str(e)}, status_code=500)
 
-    zip_io = spio.zip_audio_files(infos)
+    # TODO: Realtime progress using WebSockets:
+    # https://stribny.name/blog/2020/07/real-time-data-streaming-using-fastapi-and-websockets/
+    def progress_hook(progress):
+        size = progress["downloaded_bytes"]
+        total = progress["total_bytes"]
+        info = progress["extracted_info"]
+        count = progress["count"]
+        num_files = progress["num_files"]
+        logger.debug(f"'{info.get('id')}' progress ({count}/{num_files}): {size / total * 100:.1f} % ({size / 1000000:.2f}MB)")
+    
+    stream = spio.StreamBytesIO()
+    def on_stream_completed():
+        stream.close()
+        logger.debug("Download complete.")
 
-    background_tasks.add_task(zip_io.close)
-    # TODO: Download progress hook
-    # TODO: Unblock browser while downloading
+    background_tasks.add_task(on_stream_completed)
+
+    fname = fname.encode("unicode-escape").decode('utf-8') # Sanitize unicode
+    iter_zip = spio.zip_audio_files(exinfos, stream, fname, progress_hook=None)
+    headers = {"Content-Disposition": f"attachment; filename={fname}.zip"}
     return StreamingResponse(
-        iter([zip_io.getvalue()]), 
-        media_type="application/x-zip-compressed", 
-        headers = { "Content-Disposition": f"attachment; filename=playlistname.zip"}
+        iter_zip, 
+        media_type = "application/x-zip-compressed", 
+        headers = headers
     )
 
 

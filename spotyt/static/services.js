@@ -13,6 +13,15 @@ function getCurrentUser() {
 }
 
 
+function getDownloadUrl({ playlistName, videoIds, extensions }) {
+  const params = new URLSearchParams();
+  videoIds.forEach(vid => params.append("v", vid));
+  extensions.forEach(ext => params.append("ext", ext));
+  params.append("fname", playlistName);
+  return `${window.location.origin}/download?${params.toString()}`;
+}
+
+
 function searchYoutubeVideos(name, artist, duration, album) {
   // TODO: Stop searching when user escapes loading browser
   const params = new URLSearchParams()
