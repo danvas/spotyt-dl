@@ -13,7 +13,11 @@
     <div class="d-flex flex-wrap">
       {% for playlist in playlists %}
       <div class="card" style="width: 10rem; margin: 10px">
-        <img src="{{ playlist.images.0.url }}" class="card-img-top" alt="...">
+        {% if playlist.images|length %}
+        <img src="{{ playlist.images.0.url }}" class="card-img-top" alt="thumbnail image of playlist">
+        {% else %}
+        <img src="" class="card-img-top" alt="[no image]">
+        {% endif %}
         <div class="card-body">
           <a class="text-decoration-none" href="/playlist/{{ playlist.id }}">{{ playlist.name }}</a>
         </div>
