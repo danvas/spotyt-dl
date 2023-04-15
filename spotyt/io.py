@@ -54,7 +54,6 @@ def zip_audio_files(
     filestem: str,
     progress_hook: Any = None,
 ) -> Iterator[bytes]:
-    # FIXME: filestem to support emojis? Breaks download when it's an emoji.
     """
         File "/Users/danvas/Dev/spotyt-dl/.venv/lib/python3.10/site-packages/starlette/responses.py", line 73, in init_headers
         raw_headers = [
@@ -97,8 +96,6 @@ def extract_audio_info(video_id: str, extensions: list = []) -> VideoInfo:
     audio_formats = [f_ for f_ in info["formats"] if "audio only" in f_["format"]]
     available_formats = set([f['ext'] for f in audio_formats])
     
-    # FIXME: Breaks when no 'abr' key in format and trying to sort by it.
-    # audio_formats = sorted(audio_formats, key=lambda f_: f_["abr"], reverse=True)
     if extensions:
         if set(extensions).isdisjoint(available_formats):
             msg = (f"Given `extensions` {extensions} unavailable. Extensions available "

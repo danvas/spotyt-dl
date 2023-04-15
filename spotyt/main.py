@@ -34,7 +34,11 @@ logger.setLevel(logging.DEBUG)
 load_dotenv()
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=generate_token(16))
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key=generate_token(16),
+    session_cookie="spotyt_session"
+)
 
 @app.exception_handler(StarletteHTTPException)
 async def requests_http_exception_handler(request, exc):
@@ -235,7 +239,7 @@ async def youtube_download(
 
     background_tasks.add_task(on_stream_completed)
 
-    fname = fname.encode("unicode-escape").decode('utf-8') # Sanitize unicode
+    fname = fname.encode("unicode-escape").decode("utf-8") # Sanitize unicode
     iter_zip = spio.zip_audio_files(exinfos, stream, fname, progress_hook=None)
     headers = {"Content-Disposition": f"attachment; filename={fname}.zip"}
     return StreamingResponse(

@@ -23,7 +23,7 @@ function onYouTubeIframeAPIReady() {
       'controls': 1, // Hide player controls
       'disablekb': 1, // Disable keyboard controls
       'iv_load_policy': 3, // Hide video annotations
-      'origin': 'http://127.0.0.1:8000',
+      'origin': 'https://spotyt-7eu3w6kloq-wl.a.run.app', // FIXME: Set this during build.
     },
     events: {
       'onReady': onPlayerReady,
