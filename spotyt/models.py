@@ -1,5 +1,48 @@
-from pydantic import BaseModel
+from enum import Enum
+from pydantic import BaseModel, validator
 from typing import Any
+from urllib.parse import urlparse
+
+
+class TrackKeys(str, Enum):
+    id = 'id'
+    artist = 'artist'
+    name = 'name'
+    album = 'album'
+    album_img_url = 'album_img_url'
+    preview_url = 'preview_url'
+    duration = 'duration'
+
+
+class Track(BaseModel):
+    id: str
+    artist: str
+    name: str
+    album: str
+    album_img_url: str | None = None
+    preview_url: str | None = None
+    duration: float
+
+    @validator('album_img_url', 'preview_url')
+    def url_validator(x):
+        try:
+            result = urlparse(x)
+            return all([result.scheme, result.netloc])
+        except:
+            return False
+
+
+class Playlist(BaseModel):
+    name: str
+    description: str | None = None
+    playlist_id: str
+    tracks: list[Track]
+
+    @validator('playlist_id')
+    def playlist_id_alphanumeric(cls, val):
+        assert val.isalnum(), 'must be alphanumeric'
+        return val
+
 
 class VideoFormat(BaseModel):
     abr: float
@@ -21,6 +64,7 @@ class VideoFormat(BaseModel):
     url: str
     vcodec: str # 'none'
     width: int
+
 
 class VideoInfo(BaseModel):
     abr: float # 132.633

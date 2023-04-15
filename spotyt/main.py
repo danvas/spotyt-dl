@@ -23,10 +23,10 @@ from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 from spotyt import io as spio
-from spotyt.services import spotify, youtube
-from spotyt.services.spotify import TrackKeys
 from spotyt.auth import oauth, spotify_redirect_uri
 from spotyt.config import Settings, RuntimeMode
+from spotyt.services import spotify, youtube
+from spotyt.models import TrackKeys
 
 logger.addHandler(logging.StreamHandler(sys.stdout))
 logger.setLevel(logging.DEBUG)
@@ -135,10 +135,6 @@ async def get_current_song(request: Request):
     song_name = current_song['item']['name']
 
     return {"artist_name": artist_name, "song_name": song_name}
-
-@app.get("/api/me")
-async def get_current_user():
-    return spotify.get_current_user()
 
 @app.get("/api/users/{user_id}")
 async def get_user(request: Request, user_id: str):

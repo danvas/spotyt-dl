@@ -1,50 +1,8 @@
-from enum import Enum
-from spotipy import Spotify
-from spotipy.oauth2 import SpotifyOAuth
-import functools
-from contextlib import contextmanager
 import html
-from pydantic import BaseModel, validator
 from typing import List, Optional
-from urllib.parse import urlparse
 from spotyt.auth import oauth
 from fastapi import Request
-class TrackKeys(str, Enum):
-    id = 'id'
-    artist = 'artist'
-    name = 'name'
-    album = 'album'
-    album_img_url = 'album_img_url'
-    preview_url = 'preview_url'
-    duration = 'duration'
-
-class Track(BaseModel):
-    id: str
-    artist: str
-    name: str
-    album: str
-    album_img_url: str | None = None
-    preview_url: str | None = None
-    duration: float
-
-    @validator('album_img_url', 'preview_url')
-    def url_validator(x):
-        try:
-            result = urlparse(x)
-            return all([result.scheme, result.netloc])
-        except:
-            return False
-
-class Playlist(BaseModel):
-    name: str
-    description: str | None = None
-    playlist_id: str
-    tracks: List[Track]
-
-    @validator('playlist_id')
-    def playlist_id_alphanumeric(cls, val):
-        assert val.isalnum(), 'must be alphanumeric'
-        return val
+from spotyt.models import Track, Playlist
 
 # TODO: Add async-supported caching
 async def fetch_user(id: Optional[str] = None, request: Optional[Request] = None):
@@ -62,14 +20,6 @@ async def fetch_user(id: Optional[str] = None, request: Optional[Request] = None
         user = response.json()
 
     return user
-
-@functools.cache # TODO: Check if this is improving performance at all.
-def get_spotify_client(scope="user-library-read"):
-    return Spotify(auth_manager=SpotifyOAuth(scope=scope))
-
-@contextmanager # TODO: Singleton pattern for client
-def spotify_client(scope="user-library-read"):
-    yield get_spotify_client(scope)
 
 def build_results(tracks, album=None, filter=[]) -> List[Track]:
     results = []
@@ -94,14 +44,6 @@ def build_results(tracks, album=None, filter=[]) -> List[Track]:
         results.append(track)
 
     return results
-
-def get_playlist(id):
-    with spotify_client() as sp:
-        return sp.playlist(id)
-
-def get_current_user():
-    with spotify_client() as sp:
-        return sp.current_user()
 
 async def get_playlists(request: Request, user_id: str):
     """Get user's playlists.
