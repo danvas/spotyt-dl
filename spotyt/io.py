@@ -54,12 +54,7 @@ def zip_audio_files(
     filestem: str,
     progress_hook: Any = None,
 ) -> Iterator[bytes]:
-    """
-        File "/Users/danvas/Dev/spotyt-dl/.venv/lib/python3.10/site-packages/starlette/responses.py", line 73, in init_headers
-        raw_headers = [
-        File "/Users/danvas/Dev/spotyt-dl/.venv/lib/python3.10/site-packages/starlette/responses.py", line 74, in <listcomp>
-            (k.lower().encode("latin-1"), v.encode("latin-1"))
-        UnicodeEncodeError: 'latin-1' codec can't encode character '\u2728' in position 21: ordinal not in range(256)
+    """Generator of bytes to be streamed as a zip to client.
     """
     with zipfile.ZipFile(stream, mode='w', compression=ZIP_STORED) as zf:
         for (count, exinfo) in enumerate(exinfos, 1):

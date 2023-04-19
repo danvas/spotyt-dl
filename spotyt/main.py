@@ -4,8 +4,6 @@ import sys
 import time
 
 from authlib.common.security import generate_token
-from dotenv import load_dotenv
-from pprint import pprint
 from pydantic import BaseModel
 from typing import List, Optional
 from functools import lru_cache
@@ -30,8 +28,6 @@ from spotyt.models import TrackKeys
 
 logger.addHandler(logging.StreamHandler(sys.stdout))
 logger.setLevel(logging.DEBUG)
-
-load_dotenv()
 
 app = FastAPI()
 app.add_middleware(
@@ -253,8 +249,8 @@ if __name__ == '__main__':
     settings = get_settings()
     kwargs = {
         "reload": settings.mode == RuntimeMode.development,
-        "port": 80,
-        "host": "0.0.0.0",
+        "port": settings.port,
+        "host": settings.host,
     }
-    pprint({"settings": settings, "kwargs": kwargs})
+
     uvicorn.run("spotyt.main:app", **kwargs)
