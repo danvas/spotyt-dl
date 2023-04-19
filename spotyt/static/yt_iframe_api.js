@@ -12,8 +12,6 @@ firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 var ytplayer;
 const [playerWidth, playerHeight] = ['360', '360'];
 function onYouTubeIframeAPIReady() {
-  // const [video] = getSelectedYoutubeVideos();
-  // currentTrack = { ...video };
   ytplayer = new YT.Player("yt-player", {
     width: playerWidth,
     height: playerHeight,

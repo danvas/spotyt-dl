@@ -36,15 +36,6 @@ app.add_middleware(
     session_cookie="spotyt_session"
 )
 
-@app.exception_handler(StarletteHTTPException)
-async def requests_http_exception_handler(request, exc):
-    return await http_exception_handler(request, exc)
-
-@lru_cache()
-def get_settings():
-    return Settings()
-
-
 app.mount(
     "/static",
     StaticFiles(directory="spotyt/static", check_dir=True),
@@ -52,6 +43,23 @@ app.mount(
 )
 
 templates = Jinja2Templates(directory="spotyt/templates")
+
+@lru_cache()
+def get_settings():
+    return Settings()
+
+@app.exception_handler(StarletteHTTPException)
+async def requests_http_exception_handler(request, exc):
+    code = (exc.status_code // 100) * 100
+    if code in (400, 500):
+        context = {
+            "request": request,
+            "status_code": exc.status_code,
+            "detail": exc.detail,
+        }
+        return templates.TemplateResponse("error.html", context)
+
+    return await http_exception_handler(request, exc)
 
 # @app.get('/favicon.ico', include_in_schema=False)
 # async def favicon():
@@ -69,14 +77,6 @@ async def homepage(request: Request):
         )
         return HTMLResponse(html)
     return HTMLResponse('<a href="/login">login</a>')
-
-@app.get("/api/testing")
-async def testing(request: Request):
-    from pprint import pprint
-    auth_token = request.session.get("auth_token")
-    print(type(oauth.spotify))
-    pprint(dir(oauth.spotify))
-    return {}
 
 @app.get("/viewsession")
 async def view_session(request: Request) -> JSONResponse:
@@ -105,6 +105,28 @@ async def get_playlist_tracks(
 class SearchFields(BaseModel):
     name: str
     artist: str
+
+@app.get('/html/test')
+async def html_test():
+    html = (
+        f'<pre>useridhere</pre>'
+        f'<div><a href="/playlists/useridhere">my playlists</a></div>'
+        '<a href="/logout">logout</a>'
+    )
+    return HTMLResponse(html)
+
+@app.get("/api/test")
+async def search_youtube_videos_test():
+    """Find YouTube videos for a given track.
+    """
+    start = time.time()
+    result = youtube.search_videos("a flower for all seasons", "Pisces", "A lovely sight", 169.9)
+    end = time.time()
+    
+    return {
+        "payload": result,
+        "timeElapsedSeconds": end - start,
+    }
 
 @app.post("/api/search/")
 async def search_youtube_videos(
