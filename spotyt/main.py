@@ -1,8 +1,8 @@
 import uvicorn
+import json
 import logging
 import sys
 import time
-
 from authlib.common.security import generate_token
 from pydantic import BaseModel
 from typing import List, Optional
@@ -11,6 +11,7 @@ from fastapi import FastAPI, Request, Query, BackgroundTasks
 from fastapi.logger import logger
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import (
+    Response,
     RedirectResponse,
     HTMLResponse,
     JSONResponse, 
@@ -18,6 +19,7 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from httpx import HTTPStatusError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 from spotyt import io as spio
@@ -48,18 +50,45 @@ templates = Jinja2Templates(directory="spotyt/templates")
 def get_settings():
     return Settings()
 
+async def playlists_user_exception_handler(request: Request, context: dict) -> Response | None:
+    """Return TemplateResponse for playlists_user route exceptions because we're not
+    handling this on client side. Temporary solution until we refactor root renderer.
+    FIXME: Remove this handler and handle playlists_user exceptions on client side 
+    after refactoring root renderer in store.js.
+    """
+    user_id = request.path_params.get("user_id")
+    if user_id:
+        playlists_url = request.url_for("playlists_user", user_id=user_id)
+        if request.url == playlists_url:
+            context["request"] = request
+            return templates.TemplateResponse("error.html", context)
+
+@app.exception_handler(HTTPStatusError)
+async def requests_error_handler(request: Request, exc: HTTPStatusError) -> Response:
+    logger.debug(f"requests_error_handler: exc={repr(exc)}")
+    content = json.loads(exc.response.text).get("error", {})
+    content = {
+        "status_code": content.get("status", exc.response.status_code),
+        "detail": content.get("message", repr(exc)),
+        "path_params": request.path_params,
+    }
+    html_response = await playlists_user_exception_handler(request, content)
+    headers = getattr(exc, "headers", None)
+
+    return html_response or JSONResponse(content, status_code=exc.response.status_code, headers=headers)
+
 @app.exception_handler(StarletteHTTPException)
-async def requests_http_exception_handler(request, exc):
-    code = (exc.status_code // 100) * 100
-    if code in (400, 500):
-        context = {
-            "request": request,
+async def requests_exception_handler(request: Request, exc: StarletteHTTPException) -> Response:
+    logger.debug(f"requests_exception_handler: exc={repr(exc)}")
+    content = {
             "status_code": exc.status_code,
             "detail": exc.detail,
-        }
-        return templates.TemplateResponse("error.html", context)
+            "path_params": request.path_params,
+    }
+    html_response = await playlists_user_exception_handler(request, content)
+    headers = getattr(exc, "headers", None)
 
-    return await http_exception_handler(request, exc)
+    return html_response or JSONResponse(content, status_code=exc.status_code, headers=headers)
 
 # @app.get('/favicon.ico', include_in_schema=False)
 # async def favicon():
@@ -82,7 +111,7 @@ async def homepage(request: Request):
 async def view_session(request: Request) -> JSONResponse:
     return request.session
 
-@app.get("/api/playlist/{playlist_id}/")
+@app.get("/api/playlist/{playlist_id}")
 async def get_playlist_tracks(
     request: Request,
     playlist_id: str,
@@ -166,12 +195,8 @@ async def get_user(request: Request, user_id: str):
 
 @app.get("/playlists/{user_id}", response_class=HTMLResponse)
 async def playlists_user(request: Request, user_id: str):
-    try:
-        user = await spotify.fetch_user(request=request)
-        playlist_items = await spotify.get_playlists(request, user_id)
-    except Exception as e:
-        return templates.TemplateResponse("404.html", {"detail": e.detail, "status_code": e.status_code, "request": request, "user_id": user_id, "playlists": ""})
-
+    user = await spotify.fetch_user(request=request)
+    playlist_items = await spotify.get_playlists(request, user_id)
     context = {
         "request": request,
         "user_id": user.get("id"),
@@ -274,5 +299,5 @@ if __name__ == '__main__':
         "port": settings.port,
         "host": settings.host,
     }
-
+    print(kwargs)
     uvicorn.run("spotyt.main:app", **kwargs)

@@ -197,6 +197,7 @@ function TrackCard({ track, progressCallback, onRemoveTrack, currentVideo }) {
 function Playlist({ playlistId }) {
   const [user, setUser] = useState({});
   const [playlist, setPlaylist] = useState({});
+  const [currentError, setCurrentError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -226,17 +227,13 @@ function Playlist({ playlistId }) {
     setLoading(true);
 
     fetchPlaylist(playlistId)
-      .then((response) => {
-        return response.json();
-      })
       .then((data) => {
         setPlaylist(data.payload);
         setUser(data.payload.owner);
         dispatch(setTracks(data.payload.tracks));
       })
-      .catch((error) => {
-        console.error(error);
-        // TODO: redirect to login page
+      .catch((errorData) => {
+        errorData.then(setCurrentError)
       })
       .finally(() => setLoading(false));
   }, []);
@@ -306,6 +303,29 @@ function Playlist({ playlistId }) {
     playing ? ytplayer.pauseVideo() : ytplayer.playVideo();
   }
 
+  if (currentError) {
+    console.error("Error thrown:", { ...currentError })
+    let actionEl = <span> <a href="/">Home</a></span>
+    if (currentError.code === 511) {
+      actionEl = (
+        <p><span><a href="/login">Log in</a> to view this playlist.</span></p>
+      )
+    } else {
+      actionEl = (
+        <p>
+          Oops! {currentError.detail}: {JSON.stringify(currentError.path_params)}
+          <br />
+          <a href="/">Home</a>
+        </p>
+      )
+    }
+    return (
+      <div className="pt-4 container">
+        <p className="display-6">{currentError.message}</p>
+        {actionEl}
+      </div>
+    )
+  }
   const tracks = playlist.tracks || [];
   const inProgress = progress === 0 || progress < tracks.length
   let currentVideoTitle = currentVideo.title ? `${currentIndex + 1}. ` : '';

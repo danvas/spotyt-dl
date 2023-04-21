@@ -36,11 +36,11 @@ spotify_client_kwargs = {
 async def fetch_spotify_token(request: Request):
     if not request.session:
         logger.debug(f"No session found in request: query_params={request.query_params} headers={request.headers} state={request.state} url={request.url}")
-        raise HTTPException(status_code=511, detail="No session found in request. Log in first.")
+        raise HTTPException(status_code=511, detail="No session found in request")
     
     auth_token = request.session.get("auth_token")
     if not auth_token:
-        raise HTTPException(status_code=500, detail="No authorization token in session.")
+        raise HTTPException(status_code=500, detail="No authorization token in session")
     token = OAuth2Token(auth_token)
     return token
 

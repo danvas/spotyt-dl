@@ -52,6 +52,7 @@ const playlistRootElement = document.getElementById("playlist-root");
 const playlistId = playlistRootElement.dataset?.playlistId;
 const root = ReactDOM.createRoot(playlistRootElement);
 
+// FIXME: Make home page the root of the app and handle 5xx errors on client side.
 root.render(
   <React.StrictMode>
     <Provider store={store}>

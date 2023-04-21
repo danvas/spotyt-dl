@@ -21,11 +21,16 @@
 </head>
 
 <body>
-  <div class="container">
-    <h1>{{ status_code }} Error</h1>
-    <p>{{ detail }}</p>
+  <div class="pt-4 container">
+    <p class="display-6">{{ status_code }} Error</p>
     {% if status_code == 511 %}
-    <a href="/login">login</a>
+    <p>{{ detail }}.</p>
+    <p><a href="/login">Log in</a> to start new session.</p>
+    {% elif status_code == 404 %}
+    <p>{{ detail }}: {{ path_params }}</p>
+    <p><a href="/">Home</a></p>
+    {% else %}
+    <button onclick="reloadPage()">Take me back</button>
     {% endif %}
   </div>
 
@@ -35,6 +40,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"
     integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3"
     crossorigin="anonymous"></script>
+  <script>
+    function reloadPage() {
+      console.log("Clicked Reload button...")
+      location.reload();
+    }
+  </script>
 </body>
 
 </html>

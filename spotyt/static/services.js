@@ -1,7 +1,15 @@
 'use strict';
 
 function fetchPlaylist(id) {
-  return fetch(`/api/playlist/${id}`);
+  return fetch(`/api/playlist/${id}`)
+    .then((response) => {
+      const data = response.json();
+      const error_code = Math.floor(response.status / 100) * 100;
+      if ([400, 500].includes(error_code)) {
+        throw data;
+      }
+      return data;
+    })
 }
 
 function getCurrentUser() {
