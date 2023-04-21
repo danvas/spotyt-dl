@@ -4,6 +4,7 @@ import logging
 import sys
 import time
 from authlib.common.security import generate_token
+from contextlib import asynccontextmanager
 from pydantic import BaseModel
 from typing import List, Optional
 from functools import lru_cache
@@ -31,7 +32,19 @@ from spotyt.models import TrackKeys
 logger.addHandler(logging.StreamHandler(sys.stdout))
 logger.setLevel(logging.DEBUG)
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_time = time.time()
+    # Load things here
+    logger.debug(f"::SPOTYT_LOG:: This code is executed before the app starts")
+    print(f"::SPOTYT_LOG:: This code is executed before the app starts")
+    yield
+    milliseconds = time.time() - start_time
+    # Clean up things here
+    logger.debug(f"::SPOTYT_LOG:: This code is executed before the app ends. Lifespan: {milliseconds / 1000 :.1f}s")
+    print(f"::SPOTYT_LOG:: This code is executed before the app ends. Lifespan: {milliseconds / 1000 :.1f}s")
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     SessionMiddleware, 
     secret_key=generate_token(16),

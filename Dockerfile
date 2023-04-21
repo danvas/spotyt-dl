@@ -19,10 +19,6 @@ ENV ACCESS_LOG=${ACCESS_LOG:-/proc/1/fd/1}
 
 ENV ERROR_LOG=${ERROR_LOG:-/proc/1/fd/2}
 
-RUN python --version
-
-RUN which python
-
 WORKDIR /app-root
 
 COPY ./ /app-root
@@ -50,4 +46,4 @@ RUN sed -i 's/) if owner_profile_url else None/, default=None)/g' /usr/local/lib
 RUN grep "'uploader_id': self._search" /usr/local/lib/python3.10/site-packages/youtube_dl/extractor/youtube.py
 RUN echo "######## patching DONE ##############"
 
-CMD exec gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 --worker-class uvicorn.workers.UvicornWorker spotyt.main:app
+CMD exec uvicorn spotyt.main:app --host 0.0.0.0 --port $PORT --workers 1

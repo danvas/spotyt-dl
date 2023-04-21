@@ -10,7 +10,7 @@ firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 // 3. This function creates an <iframe> (and YouTube player)
 //    after the API code downloads.
 var ytplayer;
-const [playerWidth, playerHeight] = ['360', '360'];
+const [playerWidth, playerHeight] = ['0', '0'];
 function onYouTubeIframeAPIReady() {
   ytplayer = new YT.Player("yt-player", {
     width: playerWidth,
@@ -21,7 +21,7 @@ function onYouTubeIframeAPIReady() {
       'controls': 1, // Hide player controls
       'disablekb': 1, // Disable keyboard controls
       'iv_load_policy': 3, // Hide video annotations
-      'origin': 'https://spotyt-7eu3w6kloq-wl.a.run.app', // FIXME: Set this during build.
+      'origin': 'https://spotyt.nielvas.co', // FIXME: Set this during build.
     },
     events: {
       'onReady': onPlayerReady,
