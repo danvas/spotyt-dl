@@ -3,20 +3,43 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>Add React in One Minute</title>
+  <title>Spotyt</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet"
     integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.3/font/bootstrap-icons.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap" rel="stylesheet">
+  <link rel="icon" href="static/favicon.ico">
+  <style>
+    .spotify-font {
+      font-family: 'Montserrat', sans-serif;
+      color: #1DB954;
+    }
+  </style>
 </head>
 
 <body>
-
-  <h2>Add React in One Minute</h2>
-  <p>This page demonstrates using React with no build tooling.</p>
-  <p>React is loaded as a script tag.</p>
+  <div class="container p-4">
+    {% if user_id %}
+    <pre>{{user_id}}</pre>
+    <a class="fs-2 spotify-font" href="/playlists/{{ user_id }}">My playlists</a>
+    <div class="py-3">
+      <a type="button" class="btn btn-dark rounded-pill" href="/logout">Logout</a>
+    </div>
+    {% else %}
+    <div class="d-flex justify-content-start">
+      <div class="display-2 spotify-font">Spotyt</div>
+    </div>
+    <div class="lead pt-2">Log in with your Spotify account to start downloading some tunes</div>
+    <div class="py-4">
+      <a type="button" class="btn btn-dark rounded-pill" href="/login">Login</a>
+    </div>
+    {% endif %}
+  </div>
 
   <!-- We will put our React component inside this div. -->
-  <div id="main-play-button"></div>
+  <!-- <div id="homepage-root"></div> -->
 
   <!-- Load React. -->
   <!-- Note: when deploying, replace "development.js" with "production.min.js". -->
@@ -25,7 +48,9 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <!-- Load your React component. -->
-  <script src="static/play_button.js" type="text/babel"></script>
+  <script src="../static/constants.js" type="text/babel"></script>
+  <script src="../static/services.js" type="text/babel"></script>
+  <script src="../static/homepage.js" type="text/babel"></script>
 
 </body>
 

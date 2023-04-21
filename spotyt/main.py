@@ -97,17 +97,13 @@ async def requests_exception_handler(request: Request, exc: StarletteHTTPExcepti
 @app.get('/')
 async def homepage(request: Request):
     user = request.session.get("user")
-    user_id = user.get("id") if user else None
-    if user_id:
-        html = (
-            f'<pre>{user_id}</pre>'
-            f'<div><a href="/playlists/{user_id}">my playlists</a></div>'
-            '<a href="/logout">logout</a>'
-        )
-        return HTMLResponse(html)
-    return HTMLResponse('<a href="/login">login</a>')
+    context = {
+      "request": request,
+      "user_id": user.get("id") if user else None,
+    }
+    return templates.TemplateResponse("index.html", context)
 
-@app.get("/viewsession")
+@app.get("/viewsession", include_in_schema=False)
 async def view_session(request: Request) -> JSONResponse:
     return request.session
 
@@ -135,7 +131,7 @@ class SearchFields(BaseModel):
     name: str
     artist: str
 
-@app.get('/html/test')
+@app.get('/html/test', include_in_schema=False)
 async def html_test():
     html = (
         f'<pre>useridhere</pre>'
@@ -144,7 +140,7 @@ async def html_test():
     )
     return HTMLResponse(html)
 
-@app.get("/api/test")
+@app.get("/api/test", include_in_schema=False)
 async def search_youtube_videos_test():
     """Find YouTube videos for a given track.
     """

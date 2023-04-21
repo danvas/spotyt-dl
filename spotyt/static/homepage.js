@@ -1,22 +1,13 @@
 'use strict';
 
-async function getPlaylist(id) {
-  console.log("getlist!!")
-  return fetch(`/playlist/${id}`)
-    .then((response) => response.json())
-    .catch((error) => {
-      console.error('Error:', error);
-    });
-}
-
 function PlayButton() {
   const [liked, setLiked] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
 
-  const fetchPlaylist = async () => {
+  const logPlaylist = async () => {
     setLoading(true);
-    const playlist = await getPlaylist('3vfyDFE0rKWu12ahLW0aiP');
-    console.log(playlist);
+    const playlist = await fetchPlaylist('3vfyDFE0rKWu12ahLW0aiP').catch(err => err);
+    console.log({ playlist });
     setLoading(false);
   }
 
@@ -46,13 +37,13 @@ function PlayButton() {
       <span
         className="btn btn-danger yt-playback-button"
         style={{ cursor: "pointer" }}
-        onClick={() => fetchPlaylist()}>
+        onClick={() => logPlaylist()}>
         <Icon />
       </span>
     </div>
   );
 }
 
-const rootNode = document.getElementById('main-play-button');
-const root = ReactDOM.createRoot(rootNode);
-root.render(React.createElement(PlayButton));
+// const rootNode = document.getElementById('homepage-root');
+// const root = ReactDOM.createRoot(rootNode);
+// root.render(React.createElement(PlayButton));
