@@ -110,7 +110,7 @@ function VideoSelector({ id, name, artist, duration, album, progressCallback, cu
   }
 
   return (
-    <div className="btn-group p-2">
+    <div className="btn-group w-100">
       <PlaybackButton playing={isPlaying} loading={loading} onClick={onClickPlayback} />
       <button
         type="button"
@@ -164,33 +164,42 @@ function TrackCard({ track, progressCallback, onRemoveTrack, currentVideo }) {
   }
 
   const playPause = playing ? 'pause' : 'play';
-  // TODO: Finish onRemoveTrack functionality
   return (
-    <div className="card" style={{ width: "12rem", margin: "5px" }}>
-      {onRemoveTrack && <div className="position-relative">
-        <button onClick={onRemoveTrack} type="button" className=" btn-close position-absolute top-0 end-0" aria-label="Close"></button>
-      </div>}
-      <img src={track.album_img_url} className="card-img-top" alt={track.album_img_url} />
+    <div class="card w-100">
+      <div class="card-body">
+        <div className="d-flex flex-row">
+          <div className="pe-2">
+            <img src={track.album_img_url} style={{ width: "6vh" }} className="" alt={track.album_img_url} />
+          </div>
 
-      <div className="card-body">
-        <h5 className="card-title">{track.artist}</h5>
-        <p className="card-text">
-          {!track.preview_url ?
-            <span><i className="bi bi-dash-circle"></i></span>
-            :
-            <>
-              <audio ref={audioRef} src={track.preview_url ? track.preview_url : null}></audio>
-              <span style={{ cursor: "pointer" }} onClick={togglePreviewTrack}>
-                <i className={`bi bi-${playPause}-circle`}></i>
-              </span>
-            </>
-          }
-          <span> {track.name} ({track.duration ? toMinutesAndSeconds(track.duration) : track.duration})</span>
-        </p>
+          <div className="flex-grow-1">
+            <div className="card-title h5">
+              {track.artist}
+            </div>
+            <p class="card-text">
+              {!track.preview_url ?
+                <span><i className="bi bi-dash-circle"></i></span>
+                :
+                <>
+                  <audio ref={audioRef} src={track.preview_url ? track.preview_url : null}></audio>
+                  <span style={{ cursor: "pointer" }} onClick={togglePreviewTrack}>
+                    <i className={`bi bi-${playPause}-circle`}></i>
+                  </span>
+                </>
+              }
+              <span className="ps-2">{track.name} ({track.duration ? toMinutesAndSeconds(track.duration) : track.duration})</span>
+            </p>
+
+          </div>
+          <div className="pe-2 align-self-center">
+            <VideoSelector {...track} progressCallback={progressCallback} currentVideo={currentVideo} />
+          </div>
+          <div className="align-self-center">
+            <button type="button" className="btn btn-outline-primary btn-lg" onClick={onRemoveTrack} disabled={!onRemoveTrack}><i class="bi bi-trash"></i></button>
+          </div>
+        </div>
       </div>
-      <VideoSelector {...track} progressCallback={progressCallback} currentVideo={currentVideo} />
     </div>
-
   )
 }
 
@@ -366,7 +375,7 @@ function Playlist({ playlistId }) {
 
       <div className="p-2">{currentVideoTitle}</div>
 
-      <div className="d-flex flex-wrap">
+      <div className="d-flex flex-wrap gap-1">
         {tracks.map((track) =>
           <TrackCard
             key={track.id}

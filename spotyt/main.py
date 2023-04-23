@@ -209,6 +209,7 @@ async def playlists_user(request: Request, user_id: str):
     context = {
         "request": request,
         "user_id": user.get("id"),
+        "display_name": user.get("display_name"),
         "playlists": playlist_items,
     }
     return templates.TemplateResponse("user.html", context)
