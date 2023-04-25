@@ -222,11 +222,11 @@ def search_videos(name, artist, album=None, duration=None):
     query = query.replace(" &", "")
     result = ytmusic.api.search(query)
     if len(result) == 0:
-        return
+        return []
     
     targetSongs = ytmusic.get_best_fit_song_ids(result, song)
     if targetSongs is None:
-        return
+        return []
     
     return targetSongs
 

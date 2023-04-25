@@ -20,12 +20,16 @@ const Spinner = ({ label, type = 'border', classList = [], style = {} }) => {
 }
 
 
-const PlaybackButton = ({ playing, loading, onClick }) => {
+const PlaybackButton = ({ playing, loading, onClick, hidden }) => {
   const playpause = playing ? 'pause' : 'play';
   return (
     <button
       onClick={onClick}
-      type="button" className="btn btn-danger" disabled={false}>
+      type="button"
+      className="btn btn-danger"
+      hidden={hidden}
+      disabled={loading}
+    >
       {loading ? <Spinner classList={['spinner-border-sm',]} /> : <i className={`bi bi-${playpause}-circle`}></i>}
     </button>
   )
@@ -64,8 +68,12 @@ function VideoSelector({ id, name, artist, duration, album, progressCallback, cu
       .then(response => response.json())
       .then(data => {
         setVideoIds(data.payload);
-        dispatch(setSelectedVideoIdByTrack({ trackId: id, videoId: data.payload[0] }))
-        setSelectedVideoId(data.payload[0]);
+        if (!data.payload.length) {
+          console.log({ name, artist, datapayload: data.payload })
+        }
+        const videoId = data.payload[0];
+        dispatch(setSelectedVideoIdByTrack({ trackId: id, videoId }))
+        setSelectedVideoId(videoId);
       })
       .catch((error) => {
         console.error('Error:', error);
@@ -109,41 +117,73 @@ function VideoSelector({ id, name, artist, duration, album, progressCallback, cu
     setSelectedVideoId(videoId);
   }
 
-  return (
-    <div className="btn-group w-100">
-      <PlaybackButton playing={isPlaying} loading={loading} onClick={onClickPlayback} />
-      <button
-        type="button"
-        className="btn btn-outline-primary dropdown-toggle text-truncate"
-        data-bs-toggle="dropdown"
-      >
-        <small>
-          {loading ? "Searching..." : videos[selectedVideoId]?.title || selectedVideoId || videoIds[0]}
+  const onDownloadTrack = async (e) => {
+    const fileName = videos[selectedVideoId]?.title || "";
+    const url = getDownloadAudioUrl({
+      fileName,
+      videoId: selectedVideoId,
+      extensions: ["m4a"]
+    });
+
+    window.open(url, '_blank');
+  }
+
+  const DropdownItems = () => {
+    if (loading) { return; }
+    if (videoIds.length === 0) {
+      return (
+        <small className="text-danger-emphasis bg-danger-subtle border border-danger-subtle p-2 rounded">
+          ٩◔̯◔۶ Download unavailable
         </small>
-      </button>
+      )
+    }
+
+    return (
       <ul className="dropdown-menu">
-        {loading ?
-          null
-          :
-          videoIds.map((videoId) => {
-            const videoData = videos[videoId];
-            const duration = toMinutesAndSeconds(videoData?.duration || 0)
-            const title = videoData ? `${videoData.title} (${duration})` : videoId
-            return (
-              <div key={videoId}>
-                <li>
-                  <a id={videoId} className="dropdown-item text-wrap" href="#" onClick={() => onClickVideoItem(videoId)}>
-                    {title}
-                  </a>
-                </li>
-                <li><hr className="dropdown-divider" /></li>
-              </div>
-            );
-          }
-          )
-        }
+        {videoIds.map((videoId) => {
+          const videoData = videos[videoId];
+          const duration = toMinutesAndSeconds(videoData?.duration || 0)
+          const title = videoData ? `${videoData.title} (${duration})` : videoId
+          return (
+            <div key={videoId}>
+              <li>
+                <a id={videoId} className="dropdown-item text-wrap" href="#" onClick={() => onClickVideoItem(videoId)}>
+                  {title}
+                </a>
+              </li>
+              <li><hr className="dropdown-divider" /></li>
+            </div>
+          );
+        })}
       </ul>
-    </div >
+    )
+  }
+
+  return (
+    <div className="d-flex">
+      <div className="btn-group w-100">
+        <PlaybackButton playing={isPlaying} loading={loading} hidden={!loading && videoIds.length === 0} onClick={onClickPlayback} />
+
+        <button
+          type="button"
+          className="btn btn-outline-primary dropdown-toggle text-truncate"
+          data-bs-toggle="dropdown"
+          hidden={!loading && videoIds.length === 0}
+          disabled={loading}
+        >
+          <small>
+            {loading ? "Searching..." : videos[selectedVideoId]?.title || selectedVideoId}
+          </small>
+        </button>
+
+        <DropdownItems />
+      </div >
+      <div className="align-self-center ps-2" hidden={videoIds.length === 0}>
+        <button disabled={loading || videoIds === 0} type="button" className="btn btn-success" onClick={onDownloadTrack}>
+          <i className="bi bi-download"></i>
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -165,8 +205,11 @@ function TrackCard({ track, progressCallback, onRemoveTrack, currentVideo }) {
 
   const playPause = playing ? 'pause' : 'play';
   return (
-    <div class="card w-100">
-      <div class="card-body">
+    <div className="card w-100 position-relative">
+      <div className="position-absolute top-0 start-100 translate-middle">
+        <button type="button" className="btn btn-link" onClick={onRemoveTrack} disabled={!onRemoveTrack}><i className="bi bi-x-circle-fill fs-4 text-secondary"></i></button>
+      </div>
+      <div className="card-body">
         <div className="d-flex flex-row">
           <div className="pe-2">
             <img src={track.album_img_url} style={{ width: "6vh" }} className="" alt={track.album_img_url} />
@@ -176,7 +219,7 @@ function TrackCard({ track, progressCallback, onRemoveTrack, currentVideo }) {
             <div className="card-title h5">
               {track.artist}
             </div>
-            <p class="card-text">
+            <p className="card-text">
               {!track.preview_url ?
                 <span><i className="bi bi-dash-circle"></i></span>
                 :
@@ -193,9 +236,6 @@ function TrackCard({ track, progressCallback, onRemoveTrack, currentVideo }) {
           </div>
           <div className="pe-2 align-self-center">
             <VideoSelector {...track} progressCallback={progressCallback} currentVideo={currentVideo} />
-          </div>
-          <div className="align-self-center">
-            <button type="button" className="btn btn-outline-primary btn-lg" onClick={onRemoveTrack} disabled={!onRemoveTrack}><i class="bi bi-trash"></i></button>
           </div>
         </div>
       </div>
@@ -266,12 +306,12 @@ function Playlist({ playlistId }) {
 
   const downloadSelectedTracks = () => {
     const ids = getSelectedVideoIdsState();
+    console.log('Downloading: ', ids)
     const url = getDownloadUrl({
       playlistName: playlist?.name,
       videoIds: ids,
       extensions: ["m4a"]
     });
-    console.log('Downloading in url: ', url)
     window.open(url, '_blank');
   }
 
@@ -367,7 +407,7 @@ function Playlist({ playlistId }) {
             {inProgress ?
               <Spinner classList={['spinner-border-sm']} label=" Searching..." />
               :
-              <div><i className="bi bi-download"></i><span> Download </span></div>
+              <div><i className="bi bi-download"></i><span> Download All</span></div>
             }
           </button>
         </div>
@@ -375,11 +415,11 @@ function Playlist({ playlistId }) {
 
       <div className="p-2">{currentVideoTitle}</div>
 
-      <div className="d-flex flex-wrap gap-1">
+      <div className="d-flex flex-wrap gap-3">
         {tracks.map((track) =>
           <TrackCard
             key={track.id}
-            onRemoveTrack={!inProgress && (() => removeTrack(track.id))}
+            onRemoveTrack={inProgress ? null : () => removeTrack(track.id)}
             track={track}
             progressCallback={onVideoIdsCount}
             currentVideo={currentVideo}

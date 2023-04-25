@@ -302,6 +302,45 @@ async def youtube_download(
     )
 
 
+
+@app.get("/download-audio/{video_id}")
+async def audio_download(
+    video_id: str,
+    ext: Optional[list[str]] = Query(default=[]),
+    fname: Optional[str] = Query(default=""),
+):
+    exinfos = spio.extract_audio_infos([video_id], extensions=ext)
+    exinfo = exinfos[0]
+    fname = fname.encode("unicode-escape").decode("utf-8")
+    alt_title = fname or f"{video_id}-download"
+    filestem = exinfo.get("title", alt_title)
+    format = exinfo.get("formats", [{},])[0]
+    if not format:
+        raise StarletteHTTPException(status_code=422, detail=f"No audio format found in video {video_id}")
+    
+    url = format.get("url")
+    file_ext = format.get("ext")
+    file_name = f"{filestem}.{file_ext}"
+    print(format)
+    headers = {"Content-Disposition": f"attachment; filename={file_name}"}
+    return StreamingResponse(
+        spio.stream_file(url), 
+        media_type = "audio/mp4", 
+        headers = headers
+    )
+
+@app.get("/api/extractinfo")
+async def youtube_extract_info(
+    v: list[str] = Query(default=None),
+    ext: Optional[list[str]] = Query(default=[]),
+):
+    exinfos = spio.extract_audio_infos(v, extensions=ext)
+    # print("!!!!", exinfos)
+    return {
+        "data": exinfos,
+    }
+
+
 if __name__ == '__main__':
     settings = get_settings()
     kwargs = {

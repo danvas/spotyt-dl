@@ -120,10 +120,16 @@ def demo_zip_audio_files(info, basename):
     
     stream = StreamBytesIO()
     with open(basepath / "test_compressed.zip", "wb") as f:
-        for i in zip_audio_files(url, filename, stream, compression=ZIP_BZIP2):
+        for i in zip_audio_files(url, filename, stream):
             f.write(i)
     stream.close()
 
+def stream_file(url):
+    with urlopen(url) as response:
+        CHUNK_SIZE = 2048 * 32
+        while chunk := response.read(CHUNK_SIZE):
+        # while chunk := response.read():
+            yield chunk
 
 if __name__ == '__main__':
     v = [
