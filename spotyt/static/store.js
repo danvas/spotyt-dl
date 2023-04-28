@@ -3,7 +3,8 @@ const { Provider } = ReactRedux;
 const playlistInitialState = {
   tracks: [],
   currentTrackId: "",
-  selectedVideoIds: []
+  selectedVideoIds: [],
+  videoIds: [],
 };
 const playlistSlice = createSlice({
   name: 'playlist',
@@ -22,6 +23,11 @@ const playlistSlice = createSlice({
         state.selectedVideoIds[idx] = videoId;
       }
     },
+    setVideoIdsByTrack: (state, action) => {
+      const { trackId, videoIds } = action.payload;
+      const idx = state.tracks.findIndex(({ id }) => id === trackId);
+      state.videoIds[idx] = videoIds;
+    },
     setSelectedVideoIds: (state, action) => {
       state.selectedVideoIds = action.payload;
     },
@@ -29,6 +35,7 @@ const playlistSlice = createSlice({
 });
 
 const {
+  setVideoIdsByTrack,
   setSelectedVideoIds,
   setSelectedVideoIdByTrack,
   setCurrentTrackId,
@@ -47,6 +54,8 @@ const getTrackStateByIndex = (index) => getTracksState()[index] || {};
 const getTrackStateIndexById = (trackId) => getTracksState().findIndex((track) => track.id === trackId);
 const getCurrentTrackIdState = () => store.getState().playlist?.currentTrackId;
 const getSelectedVideoIdsState = () => store.getState().playlist?.selectedVideoIds;
+const getSelectedVideoIds = () => store.getState().playlist?.selectedVideoIds.filter((id) => !!id);
+const getVideoIdsState = () => store.getState().playlist?.videoIds;
 
 const playlistRootElement = document.getElementById("playlist-root");
 const playlistId = playlistRootElement.dataset?.playlistId;

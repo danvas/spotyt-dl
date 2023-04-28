@@ -10,10 +10,27 @@
     .custom-tooltip {
       --bs-tooltip-bg: var(--bs-primary);
     }
+
+    @keyframes backgroundColorPalette {
+      0% {
+        background: rgb(255, 255, 255);
+      }
+
+      100% {
+        background: #5c9ccd;
+      }
+    }
+
+    .bg-color-playing {
+      animation-name: backgroundColorPalette;
+      animation-duration: 2s;
+      animation-iteration-count: infinite;
+      animation-direction: alternate;
+    }
   </style>
   <!-- Note: when deploying, replace "development.js" with "production.min.js". -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/redux/4.2.1/redux.min.js"
     integrity="sha512-1/8Tj23BRrWnKZXeBruk6wTnsMJbi/lJsk9bsRgVwb6j5q39n0A00gFjbCTaDo5l5XrPVv4DZXftrJExhRF/Ug=="
     crossorigin="anonymous" referrerpolicy="no-referrer"></script>
