@@ -88,7 +88,7 @@ function VideoSelector({ id, name, artist }) {
   const [isSearching, setIsSearching] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [videoIds, setVideoIds] = useState(null); // TODO: Remove this local state and use store state (via useSelector)
+  const [videoIds, setVideoIds] = useState(null); // TODO: Remove this local state and use store state (via useSelector) or fetchVideoIds function defined below
   const [isActiveTrack, setIsActiveTrack] = useState(false);
   const [selectedVideoId, setSelectedVideoId] = useState(null);
   const [title, setTitle] = useState(name);
@@ -102,6 +102,13 @@ function VideoSelector({ id, name, artist }) {
     if (playerState.trackId !== id) {
       dispatch(setCurrentTrackId(id));
     }
+  }
+
+  const fetchVideoIds = async () => {
+    setIsSearching(true);
+    const videoIds_ = await getVideoIds(id);
+    setIsSearching(false);
+    return videoIds_;
   }
 
   useEffect(() => {
@@ -147,6 +154,7 @@ function VideoSelector({ id, name, artist }) {
   useEffect(() => {
     setIsActiveTrack(playerState.trackId === id);
     if (playerState.trackId === id) {
+      fetchVideoIds().then(setVideoIds);
       if (setSelectedVideoId !== playerState.videoData.video_id) {
         setSelectedVideoId(playerState.videoData.video_id);
       }
@@ -253,7 +261,7 @@ function VideoSelector({ id, name, artist }) {
           <i className="bi bi-arrow-repeat"></i>
         </a>
         <div className="align-self-center ps-2 flex-fill" hidden={false}>
-          <button hidden={isUnavailable} disabled={isSearching} type="button" className="btn btn-success" onClick={onDownloadTrack}>
+          <button hidden={isUnavailable} disabled={isSearching || !videoIds} type="button" className="btn btn-success" onClick={onDownloadTrack}>
             <i className="bi bi-download"></i>
           </button>
         </div>
@@ -430,7 +438,8 @@ function Playlist({ playlistId }) {
       videoIds: ids,
       extensions: ["m4a"]
     });
-    window.open(url, '_blank');
+    console.log(url);
+    // window.open(url, '_blank');
   }
 
   const skipTrack = async (direction) => {
