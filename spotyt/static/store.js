@@ -25,6 +25,10 @@ const playlistSlice = createSlice({
     setVideoIdsByTrack: (state, action) => {
       const { trackId, videoIds } = action.payload;
       const idx = state.tracks.findIndex(({ id }) => id === trackId);
+      if (state.videoIds.length === 0) {
+        state.videoIds[state.tracks.length - 1] = null;
+        state.selectedVideoIds[state.tracks.length - 1] = null;
+      }
       state.videoIds[idx] = videoIds;
     },
     setSelectedVideoIds: (state, action) => {
@@ -34,11 +38,8 @@ const playlistSlice = createSlice({
       const { trackId } = action.payload;
       const index = state.tracks.findIndex((track) => track.id === trackId);
       state.tracks = state.tracks.filter((track) => track.id !== trackId);
-      const hasVideoIds = !!state.selectedVideoIds[index];
-      if (hasVideoIds) {
-        state.selectedVideoIds = state.selectedVideoIds.splice(index, 1);
-        state.videoIds = state.videoIds.splice(index, 1);
-      }
+      state.videoIds = [...state.videoIds.slice(0, index), ...state.videoIds.slice(index + 1)];
+      state.selectedVideoIds = [...state.selectedVideoIds.slice(0, index), ...state.selectedVideoIds.slice(index + 1)];
     },
   },
 });
