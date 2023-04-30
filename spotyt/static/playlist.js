@@ -104,21 +104,6 @@ function VideoSelector({ id, name, artist }) {
     }
   }
 
-  const initializeVideoIds = async () => {
-    setIsSearching(true);
-    const videoIds_ = await getVideoIds(id);
-    setVideoIds(videoIds_);
-    dispatch(setSelectedVideoIdByTrack({ trackId: id, videoId }))
-    setIsSearching(false);
-    const [videoId] = videoIds_;
-    if (!videoId) {
-      setIsUnavailable(true);
-      console.warn(`Track search returned no videos: ${artist} ${name}`)
-    }
-    console.log("init!! ", { videoId })
-    setSelectedVideoId(videoId);
-  }
-
   useEffect(() => {
     // Ignore errors that are not 101 or 150.
     const active = playerError.trackId === id;
@@ -450,7 +435,7 @@ function Playlist({ playlistId }) {
 
   const skipTrack = async (direction) => {
     // Get the next trackId
-    const tracks = playlist.tracks || [];
+    const tracks = getTracksState();
     const nextIndex = (currentIndex + direction) % tracks.length;
     const nextTrack = tracks[nextIndex];
     if (!nextTrack) throw new Error('No next track found');
@@ -484,23 +469,16 @@ function Playlist({ playlistId }) {
     await skipTrack(-1);
   }
 
-  const removeTrack = (id) => {
-    const index = getTrackStateIndexById(id);
-    const selectedVideoIds = getSelectedVideoIdsState();
-    const updatedVideoIds = selectedVideoIds.filter((_, idx) => index !== idx);
-    console.log('Removing track!', { updatedVideoIds, playing, index, id, currentVideo })
-    dispatch(setSelectedVideoIds(updatedVideoIds));
+  const removeTrack = async (id) => {
+    console.log('Removing track!', { currentTrackId: getCurrentTrackIdState(), id, currentVideo })
+
+    if (getCurrentTrackIdState() === id) {
+      ytplayer.pauseVideo();
+      await skipTrack(1);
+    }
     const updatedTracks = playlist.tracks.filter((track) => track.id !== id);
     setPlaylist({ ...playlist, tracks: updatedTracks });
-    dispatch(setTracks(updatedTracks));
-    let idx = updatedVideoIds.indexOf(currentVideo.video_id);
-    idx = idx === -1 ? index : idx;
-    // console.log({ idx, playing })
-    if (playing) {
-      ytplayer.loadPlaylist(updatedVideoIds, idx);
-    } else {
-      ytplayer.cuePlaylist(updatedVideoIds, idx);
-    }
+    dispatch(removeTrackAndVideoIds({ trackId: id }));
   }
 
   const onVideoIdsCount = () => {
@@ -600,7 +578,7 @@ function Playlist({ playlistId }) {
         {tracks.map((track) =>
           <TrackCard
             key={track.id}
-            onRemoveTrack={inProgress ? null : () => removeTrack(track.id)}
+            onRemoveTrack={() => removeTrack(track.id)}
             track={track}
           />)}
       </div>

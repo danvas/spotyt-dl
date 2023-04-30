@@ -6,6 +6,7 @@ const playlistInitialState = {
   selectedVideoIds: [],
   videoIds: [],
 };
+
 const playlistSlice = createSlice({
   name: 'playlist',
   initialState: playlistInitialState,
@@ -19,9 +20,7 @@ const playlistSlice = createSlice({
     setSelectedVideoIdByTrack: (state, action) => {
       const { trackId, videoId } = action.payload;
       const idx = state.tracks.findIndex(({ id }) => id === trackId);
-      if (state.selectedVideoIds[idx] !== videoId) {
-        state.selectedVideoIds[idx] = videoId;
-      }
+      state.selectedVideoIds[idx] = videoId;
     },
     setVideoIdsByTrack: (state, action) => {
       const { trackId, videoIds } = action.payload;
@@ -31,7 +30,17 @@ const playlistSlice = createSlice({
     setSelectedVideoIds: (state, action) => {
       state.selectedVideoIds = action.payload;
     },
-  }
+    removeTrackAndVideoIds: (state, action) => {
+      const { trackId } = action.payload;
+      const index = state.tracks.findIndex((track) => track.id === trackId);
+      state.tracks = state.tracks.filter((track) => track.id !== trackId);
+      const hasVideoIds = !!state.selectedVideoIds[index];
+      if (hasVideoIds) {
+        state.selectedVideoIds = state.selectedVideoIds.splice(index, 1);
+        state.videoIds = state.videoIds.splice(index, 1);
+      }
+    },
+  },
 });
 
 const {
@@ -39,7 +48,8 @@ const {
   setSelectedVideoIds,
   setSelectedVideoIdByTrack,
   setCurrentTrackId,
-  setTracks
+  setTracks,
+  removeTrackAndVideoIds,
 } = playlistSlice.actions;
 
 const store = configureStore({
@@ -56,6 +66,7 @@ const getCurrentTrackIdState = () => store.getState().playlist?.currentTrackId;
 const getSelectedVideoIdsState = () => store.getState().playlist?.selectedVideoIds;
 const getSelectedVideoIds = () => store.getState().playlist?.selectedVideoIds.filter((id) => !!id);
 const getVideoIdsState = () => store.getState().playlist?.videoIds;
+const getVideoIdsByTrack = (trackId) => getVideoIdsState()[getTrackStateIndexById(trackId)]
 
 const playlistRootElement = document.getElementById("playlist-root");
 const playlistId = playlistRootElement.dataset?.playlistId;
