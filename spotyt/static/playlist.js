@@ -98,12 +98,6 @@ function VideoSelector({ id, name, artist }) {
   const dispatch = useDispatch();
   const [externalVideoIds, setExternalVideoIds] = useState([]);
 
-  const dispatchCurrentTrackId = () => {
-    if (playerState.trackId !== id) {
-      dispatch(setCurrentTrackId(id));
-    }
-  }
-
   const fetchVideoIds = async () => {
     setIsSearching(true);
     const videoIds_ = await getVideoIds(id) || [];
@@ -168,8 +162,7 @@ function VideoSelector({ id, name, artist }) {
       isPlaying ? ytplayer.pauseVideo() : ytplayer.playVideo();
       return;
     }
-
-    dispatchCurrentTrackId();
+    dispatch(setCurrentTrackId(id));
     let videoId = selectedVideoId;
     if (!videoIds) {
       const videoIds_ = await fetchVideoIds(id) || [];
@@ -202,7 +195,7 @@ function VideoSelector({ id, name, artist }) {
 
   const onRotateVideoIds = async () => {
     setIsBuffering(true);
-    dispatchCurrentTrackId();
+    dispatch(setCurrentTrackId(id));
     let videoIds_ = videoIds;
     if (!videoIds_) {
       setIsSearching(true);
@@ -260,7 +253,7 @@ function VideoSelector({ id, name, artist }) {
             </button>
           </div>
         }
-        <a hidden={isUnavailable || !isActiveTrack} type="button" className="btn fs-4 text-warning btn-link" onClick={onRotateVideoIds}>
+        <a hidden={isUnavailable || !videoIds} type="button" className="btn fs-4 text-warning btn-link" onClick={onRotateVideoIds}>
           <i className="bi bi-arrow-repeat"></i>
         </a>
         <div className={`text-truncate ${!isActiveTrack ? 'ps-2' : null} ${isPlaying ? 'bg-color-playing' : null}`}>
@@ -378,12 +371,13 @@ function Playlist({ playlistId }) {
     setPlaying(playerState.playing);
     setCurrentVideo(playerState.videoData);
     const { title, duration } = playerState.videoData;
-    let videoTitle = title ? `${currentIndex + 1}. ` : '';
+    setIsBuffering(playerState.buffering);
+    const index = getTrackStateIndexById(playerState.trackId);
+    console.log({ index })
+    let videoTitle = title ? `${index + 1}. ` : '';
     videoTitle += title || '';
     videoTitle += duration ? ` (${toMinutesAndSeconds(duration)})` : '';
     setCurrentVideoTitle(videoTitle);
-    setIsBuffering(playerState.buffering);
-    const index = getTrackStateIndexById(playerState.trackId);
     setCurrentIndex(index);
     setSelectedVideoId(playerState.videoData.video_id);
   }, [playerState]);
@@ -460,8 +454,6 @@ function Playlist({ playlistId }) {
     dispatch(setCurrentTrackId(trackId));
     setSelectedVideoId(videoId);
     if (!videoId) {
-      // const { name, artist } = nextTrack;
-      // setCurrentVideoTitle(`${nextIndex + 1}. ${artist} - ${name}`);
       console.error("No videoId found for trackId", trackId);
       const detail = {
         error: 99,
@@ -471,7 +463,6 @@ function Playlist({ playlistId }) {
       }
       const ytplayerEvent = new CustomEvent(YTPLAYERERROR, { detail });
       window.dispatchEvent(ytplayerEvent);
-      // if (playing) { ytplayer.pauseVideo(); }
       return;
     }
     ytplayer.loadVideoById(videoId);
@@ -585,7 +576,7 @@ function Playlist({ playlistId }) {
           </button>
         </div>
       </div>
-      <div className="p-2">{currentVideoTitle}
+      <div className="py-4 lead">{currentVideoTitle}
         <span className="ps-2">{!isLoading && !isSearching && unavailableTracks.includes(getCurrentTrackIdState()) && <button className="btn btn-outline-danger" type="button" onClick={() => removeTrack(getCurrentTrackIdState())}>٩◔̯◔۶ Unavailable for download! Click to remove <i className="bi bi-x-circle-fill"></i></button>}</span>
       </div>
       <div className="d-flex flex-wrap gap-3">

@@ -623,6 +623,7 @@ function fetchPlaylist(id) {
       }
       return data;
     })
+  // .catch(err => console.log(err))
 }
 
 function getCurrentUser() {
