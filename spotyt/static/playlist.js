@@ -106,7 +106,7 @@ function VideoSelector({ id, name, artist }) {
 
   const fetchVideoIds = async () => {
     setIsSearching(true);
-    const videoIds_ = await getVideoIds(id);
+    const videoIds_ = await getVideoIds(id) || [];
     setIsSearching(false);
     return videoIds_;
   }
@@ -125,25 +125,18 @@ function VideoSelector({ id, name, artist }) {
     }
 
     const handleError = async () => {
-      if (playerError.videoId) {
-        let videoIds_ = videoIds;
-        if (!videoIds_) {
-          setIsSearching(true);
-          videoIds_ = await getVideoIds(id);
-          setIsSearching(false);
-        }
+      if (YTPLAYERERROR_CODES.includes(playerError.error)) {
+        const videoIds_ = await fetchVideoIds();
         setVideoIds(videoIds_);
-        if (!videoIds_) {
+        if (videoIds_.length === 0) {
           setIsUnavailable(true);
         }
         if (videoIds_?.includes(playerError.videoId)) {
           if (!externalVideoIds.includes(playerError.videoId)) {
             setExternalVideoIds([...externalVideoIds, playerError.videoId]);
           }
-        } else {
-          console.warn(`State values out of sync! '${playerError.videoId}' is expected in ${JSON.stringify(videoIds_)})`)
         }
-        setTitle(name);
+        // setTitle(name);
         setSelectedVideoId(playerError.videoId);
       }
     };
@@ -177,15 +170,26 @@ function VideoSelector({ id, name, artist }) {
     }
 
     dispatchCurrentTrackId();
-    let videoIds_ = videoIds;
     let videoId = selectedVideoId;
-    if (!videoIds_) {
-      setIsSearching(true);
-      videoIds_ = await getVideoIds(id);
-      setIsSearching(false);
+    if (!videoIds) {
+      const videoIds_ = await fetchVideoIds(id) || [];
       setVideoIds(videoIds_);
-      [videoId] = videoIds_;
-      dispatch(setSelectedVideoIdByTrack({ trackId: id, videoId }))
+      if (videoIds_.length === 0) {
+        setIsUnavailable(true);
+        console.error("No videoId found for trackId", id);
+        const detail = {
+          error: 99,
+          message: `No videos found for track ${id}`,
+          videoId,
+          trackId: id,
+        }
+        const ytplayerEvent = new CustomEvent(YTPLAYERERROR, { detail });
+        window.dispatchEvent(ytplayerEvent);
+
+      } else {
+        [videoId] = videoIds_;
+        dispatch(setSelectedVideoIdByTrack({ trackId: id, videoId }))
+      }
     }
     ytplayer.loadVideoById(videoId);
   }
@@ -228,15 +232,15 @@ function VideoSelector({ id, name, artist }) {
   const TrackTitle = () => {
     if (isUnavailable) {
       return (
-        <small className="text-danger-emphasis bg-danger-subtle border border-danger-subtle p-2 rounded">
+        <span className="text-danger-emphasis bg-danger-subtle border border-danger-subtle rounded p-2">
           ٩◔̯◔۶ Download unavailable
-        </small>
+        </span>
       )
     }
     return (
-      <small className="text-truncate">
+      <span className="">
         {isSearching ? "Searching..." : (isBuffering ? "Loading..." : title)}
-      </small>
+      </span>
     )
   }
 
@@ -244,34 +248,36 @@ function VideoSelector({ id, name, artist }) {
     <div>
       <div className={`d-flex border rounded-3 align-items-center ${isPlaying ? 'bg-color-playing' : ''}`}>
         {!externalVideoIds.includes(selectedVideoId) &&
-          <button
-            onClick={onClickPlayback}
-            type="button"
-            className="btn btn-danger"
-            disabled={isSearching}
-            hidden={isUnavailable}
-          >
-            {isSearching || isBuffering ? <Spinner classList={['spinner-border-sm',]} /> : <i className={`bi bi-${isPlaying ? 'pause' : 'play'}-circle`}></i>}
-          </button>
+          <div className="">
+            <button
+              onClick={onClickPlayback}
+              type="button"
+              className="btn btn-danger btn-lg"
+              disabled={isSearching}
+              hidden={isUnavailable}
+            >
+              {isSearching || isBuffering ? <Spinner classList={['spinner-border-sm',]} /> : <i className={`bi bi-${isPlaying ? 'pause' : 'play'}-circle`}></i>}
+            </button>
+          </div>
         }
-        <div className="px-2 ">
-          <TrackTitle />
-        </div>
-        <a hidden={isUnavailable || !isActiveTrack} type="button" className="btn text-warning btn-link" onClick={onRotateVideoIds}>
+        <a hidden={isUnavailable || !isActiveTrack} type="button" className="btn fs-4 text-warning btn-link" onClick={onRotateVideoIds}>
           <i className="bi bi-arrow-repeat"></i>
         </a>
-        <div className="align-self-center ps-2 flex-fill" hidden={false}>
-          <button hidden={isUnavailable} disabled={isSearching || !videoIds} type="button" className="btn btn-success" onClick={onDownloadTrack}>
+        <div className={`text-truncate ${!isActiveTrack ? 'ps-2' : null} ${isPlaying ? 'bg-color-playing' : null}`}>
+          <TrackTitle />
+        </div>
+        <div className="align-self-center ms-auto ps-2" hidden={false}>
+          <button hidden={isUnavailable} disabled={isSearching || !videoIds} type="button" className="btn btn-success btn-lg" onClick={onDownloadTrack}>
             <i className="bi bi-download"></i>
           </button>
         </div>
       </div >
-      {externalVideoIds.includes(selectedVideoId) && <p className="text-left">
+      {externalVideoIds.includes(selectedVideoId) && <div className="text-left">
         <a className="text-left text-decoration-none text-danger" style={{ fontSize: "0.9em" }}
           href={`https://www.youtube.com/watch?v=${selectedVideoId}`} target="_blank">
           Playback unavailable! Click here to listen on Youtube <i className="bi bi-box-arrow-up-right"></i>
         </a>
-      </p>}
+      </div>}
     </div>
   );
 }
@@ -301,10 +307,10 @@ function TrackCard({ track, onRemoveTrack }) {
       <div className="card-body">
         <div className="d-flex flex-row">
           <div className="pe-2">
-            <img src={track.album_img_url} style={{ width: "6vh" }} className="" alt={track.album_img_url} />
+            <img src={track.album_img_url} style={{ width: "5vh" }} className="" alt={track.album_img_url} />
           </div>
 
-          <div className="flex-grow-1">
+          <div className="me-auto pe-2">
             <div className="card-title h5">
               {track.artist}
             </div>
@@ -319,11 +325,12 @@ function TrackCard({ track, onRemoveTrack }) {
                   </span>
                 </>
               }
-              <span className="ps-2">{track.name} ({track.duration ? toMinutesAndSeconds(track.duration) : track.duration})</span>
+              <span className="ps-1">{track.name} ({track.duration ? toMinutesAndSeconds(track.duration) : track.duration})</span>
             </p>
 
           </div>
-          <div className="pe-2 align-self-center">
+
+          <div className="align-self-center w-75">
             <VideoSelector {...track} />
           </div>
         </div>
@@ -341,23 +348,40 @@ function Playlist({ playlistId }) {
   const [playing, setPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
   const [currentVideo, setCurrentVideo] = useState({});
+  const [currentVideoTitle, setCurrentVideoTitle] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedVideoId, setSelectedVideoId] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [unavailableTracks, setUnavailableTracks] = useState([]);
   const dispatch = useDispatch()
   const playerState = usePlayerState();
   const playerError = usePlayerError();
 
   useEffect(() => {
-    setSelectedVideoId(playerState.videoId);
-    const index = getTrackStateIndexById(playerError.trackId);
-    setCurrentIndex(index);
-    setSelectedVideoId(playerError.videoId);
+    if (playerError.error) {
+      setSelectedVideoId(playerState.videoId);
+      const index = getTrackStateIndexById(playerError.trackId);
+      setCurrentIndex(index);
+      setSelectedVideoId(playerError.videoId);
+      if (playerError.error === 99) {
+        if (!unavailableTracks.includes(playerError.trackId)) {
+          setUnavailableTracks([...unavailableTracks, playerError.trackId]);
+        }
+        const index = getTrackStateIndexById(playerError.trackId);
+        const { name, artist } = getTrackStateByIndex(index);
+        setCurrentVideoTitle(`${index + 1}. ${artist} - ${name}`);
+      }
+    }
   }, [playerError]);
 
   useEffect(() => {
     setPlaying(playerState.playing);
     setCurrentVideo(playerState.videoData);
+    const { title, duration } = playerState.videoData;
+    let videoTitle = title ? `${currentIndex + 1}. ` : '';
+    videoTitle += title || '';
+    videoTitle += duration ? ` (${toMinutesAndSeconds(duration)})` : '';
+    setCurrentVideoTitle(videoTitle);
     setIsBuffering(playerState.buffering);
     const index = getTrackStateIndexById(playerState.trackId);
     setCurrentIndex(index);
@@ -403,33 +427,6 @@ function Playlist({ playlistId }) {
       });
   }, []);
 
-  // useEffect(() => {
-  //   const { selectedVideoIds } = getPlaylistState();
-
-  //   if (selectedVideoIds?.length === 1) {
-  //     console.log('cueing first video!!', ytplayer?.cuePlaylist, { ...ytplayer })
-  //     if (ytplayer?.cuePlaylist) {
-  //       ytplayer.cuePlaylist(selectedVideoIds);
-  //     } else {
-  //       console.warn('Tried cueing player, but player not ready yet.')
-  //     }
-  //   }
-
-  //   if (!!progress && progress === tracks.length) {
-  //     const startPlay = playing;
-  //     console.log('progress complete!')
-  //     const { selectedVideoIds } = getPlaylistState();
-  //     if (ytplayer.cuePlaylist) {
-  //       ytplayer.cuePlaylist(selectedVideoIds);
-  //       if (startPlay) {
-  //         ytplayer.playVideoAt(currentIndex);
-  //       }
-  //     } else {
-  //       console.warn('Tried cueing player, but player not ready yet.')
-  //     }
-  //   }
-  // }, [progress])
-
   const downloadSelectedTracks = () => {
     const ids = getSelectedVideoIds();
     console.log('Downloading: ', ids)
@@ -456,7 +453,6 @@ function Playlist({ playlistId }) {
       videoIds = await getVideoIds(trackId);
       setIsSearching(false);
       [videoId] = videoIds;
-      console.log("setVideoIdsByTrack...", { videoId, videoIds })
       dispatch(setVideoIdsByTrack({ trackId, videoIds }))
       dispatch(setSelectedVideoIdByTrack({ trackId, videoId }))
     }
@@ -464,7 +460,18 @@ function Playlist({ playlistId }) {
     dispatch(setCurrentTrackId(trackId));
     setSelectedVideoId(videoId);
     if (!videoId) {
+      // const { name, artist } = nextTrack;
+      // setCurrentVideoTitle(`${nextIndex + 1}. ${artist} - ${name}`);
       console.error("No videoId found for trackId", trackId);
+      const detail = {
+        error: 99,
+        message: `No videos found for track ${trackId}`,
+        videoId,
+        trackId,
+      }
+      const ytplayerEvent = new CustomEvent(YTPLAYERERROR, { detail });
+      window.dispatchEvent(ytplayerEvent);
+      // if (playing) { ytplayer.pauseVideo(); }
       return;
     }
     ytplayer.loadVideoById(videoId);
@@ -523,13 +530,8 @@ function Playlist({ playlistId }) {
     )
   }
 
-  // const tracks = playlist.tracks.map((track, index) => { getVideoIdsState() }) || [];
   const tracks = playlist.tracks || [];
   const inProgress = progress === 0 || progress < tracks.length
-  let currentVideoTitle = currentVideo.title ? `${currentIndex + 1}. ` : '';
-  currentVideoTitle += currentVideo.title || '';
-  currentVideoTitle += currentVideo.duration ? ` (${toMinutesAndSeconds(currentVideo.duration)})` : '';
-
   const PlaybackIcon = () => {
     // console.log({ playerState, playing, isBuffering, isSearching })
     if (isBuffering) {
@@ -547,6 +549,7 @@ function Playlist({ playlistId }) {
       <Spinner type="grow" label="Loading..." />
     )
   }
+  const selectedVideoIdsCount = getSelectedVideoIds()?.length || 0;
   return (
     <div className="pt-4 container">
       <a className="h4 text-primary text-decoration-none" href={`/playlists/${user.id}`}>{user.display_name}</a>
@@ -568,21 +571,23 @@ function Playlist({ playlistId }) {
         </div>
         <div className=" align-self-center px-2 flex-fill">
           {
-            inProgress ?
-              <div className="progress" role="progressbar" aria-label="Tracks found" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
-                <div className="progress-bar" style={{ width: `${progress / tracks.length * 100}%` }}>{progress} of {tracks.length} tracks found</div>
+            selectedVideoIdsCount ?
+              <div hidden={true} className="progress" role="progressbar" aria-label="Tracks found" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+                <div className="progress-bar" style={{ width: `${selectedVideoIdsCount / tracks.length * 100}%` }}>{selectedVideoIdsCount || 0} of {tracks.length} tracks found</div>
               </div>
               :
               null
           }
         </div>
         <div className="">
-          <button onClick={downloadSelectedTracks} type="button" className={`btn btn-${inProgress ? 'primary' : 'success'} rounded-pill`}>
-            <div><i className="bi bi-download"></i><span> Download {progress} tracks</span></div>
+          <button hidden={!selectedVideoIdsCount} onClick={downloadSelectedTracks} type="button" className={`btn btn-${inProgress ? 'success' : 'primary'} rounded-pill`}>
+            <div><i className="bi bi-download"></i><span> Download {selectedVideoIdsCount} track{selectedVideoIdsCount > 1 ? "s" : null}</span></div>
           </button>
         </div>
       </div>
-      <div className="p-2">{currentVideoTitle}</div>
+      <div className="p-2">{currentVideoTitle}
+        <span className="ps-2">{!isLoading && !isSearching && unavailableTracks.includes(getCurrentTrackIdState()) && <button className="btn btn-outline-danger" type="button" onClick={() => removeTrack(getCurrentTrackIdState())}>٩◔̯◔۶ Unavailable for download! Click to remove <i className="bi bi-x-circle-fill"></i></button>}</span>
+      </div>
       <div className="d-flex flex-wrap gap-3">
         {tracks.map((track) =>
           <TrackCard
