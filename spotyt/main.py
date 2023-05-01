@@ -311,9 +311,9 @@ async def audio_download(
 ):
     exinfos = spio.extract_audio_infos([video_id], extensions=ext)
     exinfo = exinfos[0]
-    fname = fname.encode("unicode-escape").decode("utf-8")
     alt_title = fname or f"{video_id}-download"
     filestem = exinfo.get("title", alt_title)
+    filestem = filestem.encode("unicode-escape").decode("utf-8")
     format = exinfo.get("formats", [{},])[0]
     if not format:
         raise StarletteHTTPException(status_code=422, detail=f"No audio format found in video {video_id}")
