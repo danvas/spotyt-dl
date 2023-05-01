@@ -14,16 +14,17 @@
       <h1>{{ display_name.title() }}'s Playlists</h1>
       <a class="h5 text-primary text-decoration-none" href="/">Home</a>
     </div>
-    <div class="d-flex flex-wrap">
+    <div class="d-flex flex-wrap align-content-start gap-2">
       {% for playlist in playlists %}
-      <div class="card" style="width: 10rem; margin: 10px">
+      <div class="card">
         {% if playlist.images|length %}
-        <img src="{{ playlist.images.0.url }}" class="card-img-top" alt="thumbnail image of playlist">
+        <img src="{{ playlist.images.0.url }}" style="width: 10rem" class="card-img-top"
+          alt="thumbnail image of playlist">
         {% else %}
         <img src="" class="card-img-top" alt="[no image]">
         {% endif %}
-        <div class="card-body">
-          <a class="text-decoration-none" href="/playlist/{{ playlist.id }}">{{ playlist.name }}</a>
+        <div class="card-body " style="width: 10rem">
+          <a class="text-decoration-none text-wrap fs-4" href="/playlist/{{ playlist.id }}">{{ playlist.name }}</a>
         </div>
       </div>
       {% endfor %}
