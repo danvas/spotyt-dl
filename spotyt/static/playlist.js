@@ -298,32 +298,35 @@ function TrackCard({ track, onRemoveTrack }) {
         <button type="button" className="btn btn-link" onClick={onRemoveTrack} disabled={!onRemoveTrack}><i className="bi bi-x-circle-fill fs-4 text-secondary"></i></button>
       </div>
       <div className="card-body">
-        <div className="d-flex flex-row">
-          <div className="pe-2">
-            <img src={track.album_img_url} style={{ width: "5vh" }} className="" alt={track.album_img_url} />
-          </div>
-
-          <div className="me-auto pe-2">
-            <div className="card-title h5">
-              {track.artist}
+        <div className="vstack gap-3">
+          <div className="d-flex flex-row">
+            <div className="pe-3">
+              <img src={track.album_img_url} style={{ width: "12vh" }} className="" alt={track.album_img_url} />
             </div>
-            <p className="card-text">
-              {!track.preview_url ?
-                <span><i className="bi bi-dash-circle"></i></span>
-                :
-                <>
-                  <audio ref={audioRef} src={track.preview_url ? track.preview_url : null}></audio>
-                  <span style={{ cursor: "pointer" }} onClick={togglePreviewTrack}>
-                    <i className={`bi bi-${playPause}-circle`}></i>
-                  </span>
-                </>
-              }
-              <span className="ps-1">{track.name} ({track.duration ? toMinutesAndSeconds(track.duration) : track.duration})</span>
-            </p>
+
+            <div className="">
+              <div className="card-title h5">
+                {track.artist}
+              </div>
+
+              <p className="card-text">
+                {!track.preview_url ?
+                  <span><i className="bi bi-dash-circle"></i></span>
+                  :
+                  <>
+                    <audio ref={audioRef} src={track.preview_url ? track.preview_url : null}></audio>
+                    <span style={{ cursor: "pointer" }} onClick={togglePreviewTrack}>
+                      <i className={`bi bi-${playPause}-circle`}></i>
+                    </span>
+                  </>
+                }
+                <span className="ps-1">{track.name} ({track.duration ? toMinutesAndSeconds(track.duration) : track.duration})</span>
+              </p>
+
+            </div>
 
           </div>
-
-          <div className="align-self-center w-75">
+          <div className="w-100">
             <VideoSelector {...track} />
           </div>
         </div>
@@ -373,7 +376,6 @@ function Playlist({ playlistId }) {
     const { title, duration } = playerState.videoData;
     setIsBuffering(playerState.buffering);
     const index = getTrackStateIndexById(playerState.trackId);
-    console.log({ index })
     let videoTitle = title ? `${index + 1}. ` : '';
     videoTitle += title || '';
     videoTitle += duration ? ` (${toMinutesAndSeconds(duration)})` : '';
