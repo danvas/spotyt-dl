@@ -524,7 +524,11 @@ function Playlist({ playlistId }) {
       return;
     }
     updateProgress();
-    ytplayer.loadVideoById(videoId);
+    if (playing) {
+      ytplayer.loadVideoById(videoId);
+    } else {
+      ytplayer.cueVideoById(videoId);
+    }
   }
 
   const skipForward = async () => {
