@@ -130,7 +130,6 @@ function VideoSelector({ id, name, artist }) {
             setExternalVideoIds([...externalVideoIds, playerError.videoId]);
           }
         }
-        // setTitle(name);
         setSelectedVideoId(playerError.videoId);
       }
     };
@@ -237,6 +236,7 @@ function VideoSelector({ id, name, artist }) {
     )
   }
 
+  const videoIdsNotSet = !getVideoIdsByTrack(id)?.length;
   return (
     <div>
       <div className={`d-flex border rounded-3 align-items-center ${isPlaying ? 'bg-color-playing' : ''}`}>
@@ -253,14 +253,14 @@ function VideoSelector({ id, name, artist }) {
             </button>
           </div>
         }
-        <a hidden={isUnavailable || !videoIds} type="button" className="btn fs-4 text-warning btn-link" onClick={onRotateVideoIds}>
+        <a hidden={isUnavailable || videoIdsNotSet} type="button" className="btn fs-4 text-warning btn-link" onClick={onRotateVideoIds}>
           <i className="bi bi-arrow-repeat"></i>
         </a>
         <div className={`text-truncate ${!isActiveTrack ? 'ps-2' : null} ${isPlaying ? 'bg-color-playing' : null}`}>
           <TrackTitle />
         </div>
         <div className="align-self-center ms-auto ps-2" hidden={false}>
-          <button hidden={isUnavailable} disabled={isSearching || !videoIds} type="button" className="btn btn-success btn-lg" onClick={onDownloadTrack}>
+          <button hidden={isUnavailable} disabled={isSearching || videoIdsNotSet} type="button" className="btn btn-success btn-lg" onClick={onDownloadTrack}>
             <i className="bi bi-download"></i>
           </button>
         </div>
@@ -349,23 +349,31 @@ function Playlist({ playlistId }) {
   const [selectedVideoId, setSelectedVideoId] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   const [unavailableTracks, setUnavailableTracks] = useState([]);
+  const [downloadAll, setDownloadAll] = useState(false);
   const dispatch = useDispatch()
   const playerState = usePlayerState();
   const playerError = usePlayerError();
+
+  const onChangeSwitch = (event) => {
+    setDownloadAll(event.target.checked);
+  }
+
+  const updateProgress = () => {
+    setProgress(getSelectedVideoIds()?.length || 0);
+  }
 
   useEffect(() => {
     if (playerError.error) {
       setSelectedVideoId(playerState.videoId);
       const index = getTrackStateIndexById(playerError.trackId);
+      const { name, artist } = getTrackStateByIndex(index);
+      setCurrentVideoTitle(`${artist} - ${name}`);
       setCurrentIndex(index);
       setSelectedVideoId(playerError.videoId);
       if (playerError.error === 99) {
         if (!unavailableTracks.includes(playerError.trackId)) {
           setUnavailableTracks([...unavailableTracks, playerError.trackId]);
         }
-        const index = getTrackStateIndexById(playerError.trackId);
-        const { name, artist } = getTrackStateByIndex(index);
-        setCurrentVideoTitle(`${index + 1}. ${artist} - ${name}`);
       }
     }
   }, [playerError]);
@@ -376,8 +384,7 @@ function Playlist({ playlistId }) {
     const { title, duration } = playerState.videoData;
     setIsBuffering(playerState.buffering);
     const index = getTrackStateIndexById(playerState.trackId);
-    let videoTitle = title ? `${index + 1}. ` : '';
-    videoTitle += title || '';
+    let videoTitle = title || '';
     videoTitle += duration ? ` (${toMinutesAndSeconds(duration)})` : '';
     setCurrentVideoTitle(videoTitle);
     setCurrentIndex(index);
@@ -401,47 +408,96 @@ function Playlist({ playlistId }) {
         setIsSearching(true);
         getVideoIds(id)
           .then((videoIds) => {
-            setIsSearching(false);
             const [videoId] = videoIds;
             dispatch(setVideoIdsByTrack({ trackId: id, videoIds }));
             dispatch(setSelectedVideoIdByTrack({ trackId: id, videoId }))
             setSelectedVideoId(videoId);
+            if (videoId) {
+              setProgress(progress + 1)
+            }
             if (!playerState.videoData?.video_id) {
               ytplayer.cueVideoById(videoId);
             }
           })
       })
       .catch((errorData) => {
-        console.error('errorData', errorData)
-        errorData.then(err => {
-          setCurrentError(err);
+        console.log('errorData', { errorData })
+        errorData.then(error => {
+          console.error('error', error)
+          setCurrentError(error);
         })
       })
       .finally(() => {
         setIsLoading(false);
         setIsSearching(false);
+        getSelectedVideoIds()
       });
   }, []);
 
-  const downloadSelectedTracks = () => {
-    const ids = getSelectedVideoIds();
-    console.log('Downloading: ', ids)
+  const getAllVideoIds = async () => {
+    const selectedVideoIds = [...getSelectedVideoIdsState()];
+    const videoIdPromises = [];
+    const tracks = getTracksState();
+    let count = progress;
+    console.log("getAllVideoIds....")
+    tracks.forEach((track, index) => {
+      const videoId = selectedVideoIds[index];
+      if (videoId != null) {
+        videoIdPromises.push(Promise.resolve(videoId));
+      } else {
+        const { id, name, artist, duration, album } = track;
+        videoIdPromises.push(
+          searchYoutubeVideos(id, name, artist, duration, album)
+            .then((data) => {
+              const videoIds = data.payload;
+              const [videoId] = videoIds;
+              if (videoId) {
+                dispatch(setSelectedVideoIdByTrack({ trackId: id, videoId }));
+                dispatch(setVideoIdsByTrack({ trackId: id, videoIds }));
+                count += 1;
+                setProgress(count);
+              } else {
+                console.warn(`No videos found for '${track?.artist} - ${track?.name}' (ID ${trackId}). Skipping this track in downloads.`);
+              }
+              return videoId;
+            })
+        );
+      }
+    });
+    setIsSearching(true);
+    setCurrentVideoTitle("");
+    const vids = await Promise.all(videoIdPromises);
+    setIsSearching(false);
+    return vids.filter(id => !!id);
+  }
+
+  const downloadTracks = async () => {
+    updateProgress();
+    let ids = getSelectedVideoIds();
+    if (downloadAll) {
+      ids = await getAllVideoIds();
+    }
+    console.log("Downloading...", { videoIds: ids })
     const url = getDownloadUrl({
       playlistName: playlist?.name,
       videoIds: ids,
       extensions: ["m4a"]
     });
-    console.log(url);
-    // window.open(url, '_blank');
+    window.open(url, '_blank');
+    console.log({ url, playerState });
+    const { title } = playerState.videoData?.title || "";
+    setCurrentIndex(getTrackStateIndexById(playerState.trackId));
+    setCurrentVideoTitle(title);  // FIXME: Setting empty title?
   }
 
   const skipTrack = async (direction) => {
     // Get the next trackId
     const tracks = getTracksState();
     const nextIndex = (currentIndex + direction) % tracks.length;
-    const nextTrack = tracks[nextIndex];
-    if (!nextTrack) throw new Error('No next track found');
-    const trackId = nextTrack.id;
+    const { id, name, artist } = tracks[nextIndex];
+    if (!id) throw new Error('No next track found');
+    setCurrentVideoTitle(`${artist} - ${name}`);
+    const trackId = id;
     let videoIds;
     let videoId = getSelectedVideoIdsState[nextIndex]
     if (!videoId) {
@@ -467,6 +523,7 @@ function Playlist({ playlistId }) {
       window.dispatchEvent(ytplayerEvent);
       return;
     }
+    updateProgress();
     ytplayer.loadVideoById(videoId);
   }
 
@@ -488,11 +545,7 @@ function Playlist({ playlistId }) {
     const updatedTracks = playlist.tracks.filter((track) => track.id !== id);
     setPlaylist({ ...playlist, tracks: updatedTracks });
     dispatch(removeTrackAndVideoIds({ trackId: id }));
-  }
-
-  const onVideoIdsCount = () => {
-    const count = getSelectedVideoIds().length;
-    setProgress(count);
+    updateProgress();
   }
 
   const togglePlayback = () => {
@@ -542,52 +595,70 @@ function Playlist({ playlistId }) {
       <Spinner type="grow" label="Loading..." />
     )
   }
-  const selectedVideoIdsCount = getSelectedVideoIds()?.length || 0;
+  const TrackTitle = () => {
+    if (isSearching) {
+      return <span>Searching <em>{currentVideoTitle}</em>...</span>
+    }
+    const prefix = progress > 0 ? `${currentIndex + 1}. ` : "";
+    return <span>{prefix}{currentVideoTitle}</span>
+  }
+
   return (
-    <div className="pt-4 container">
-      <a className="h4 text-primary text-decoration-none" href={`/playlists/${user.id}`}>{user.display_name}</a>
-      <h1 className="display-5"> {playlist?.name}</h1>
-      <div className="d-flex flex-row justify-content-between">
-        <div className=" align-self-center">
-          <div className="btn-group" role="group" aria-label="Playback Controller">
-            <button type="button" className="btn btn-outline-primary btn-lg" onClick={skipBackward} disabled={!currentIndex}><i className="bi bi-skip-backward"></i></button>
-            {!isSearching && selectedVideoId && playerError?.videoId === selectedVideoId ?
-              <a className="btn btn-outline-primary btn-lg" style={{ fontSize: "1em" }}
-                href={`https://www.youtube.com/watch?v=${playerError.videoId}`} target="_blank">
-                <i className="bi bi-box-arrow-up-right"></i>
-              </a>
-              :
-              <button type="button" className={`btn btn-outline-primary btn-lg${playing ? ' bg-color-playing' : ''}`} onClick={togglePlayback} disabled={isBuffering}><PlaybackIcon /></button>
-            }
-            <button type="button" className="btn btn-outline-primary btn-lg" onClick={skipForward} disabled={currentIndex === tracks.length - 1}><i className="bi bi-skip-forward"></i></button>
+    <div>
+      <div hidden={!downloadAll || getSelectedVideoIds().length === tracks.length} className="progress rounded-0" role="progressbar" aria-label="Tracks found" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+        <div className={`progress-bar bg-primary ${isSearching ? "progress-bar-striped progress-bar-animated" : null} ps-2 overflow-visible`} style={{ width: `${getSelectedVideoIds().length / tracks.length * 100}%` }}>{getSelectedVideoIds().length} of {tracks.length} tracks ready to download</div>
+      </div>
+      <div className="pt-4 container">
+        <a className="h4 text-primary text-decoration-none" href={`/playlists/${user.id}`}>{user.display_name}</a>
+        <h1 className="display-5"> {playlist?.name}</h1>
+        <div className="d-flex justify-content-between">
+          <div className=" align-self-center">
+            <div className="btn-group" role="group" aria-label="Playback Controller">
+              <button type="button" className="btn btn-outline-primary btn-lg" onClick={skipBackward} disabled={!currentIndex}><i className="bi bi-skip-backward"></i></button>
+              {!isSearching && selectedVideoId && playerError?.videoId === selectedVideoId ?
+                <a className="btn btn-outline-primary btn-lg" style={{ fontSize: "1em" }}
+                  href={`https://www.youtube.com/watch?v=${playerError.videoId}`} target="_blank">
+                  <i className="bi bi-box-arrow-up-right"></i>
+                </a>
+                :
+                <button type="button" className={`btn btn-outline-primary btn-lg${playing ? ' bg-color-playing' : ''}`} onClick={togglePlayback} disabled={isBuffering}><PlaybackIcon /></button>
+              }
+              <button type="button" className="btn btn-outline-primary btn-lg" onClick={skipForward} disabled={currentIndex === tracks.length - 1}><i className="bi bi-skip-forward"></i></button>
+            </div>
+          </div>
+          <div className="ms-auto">
+            <button
+              disabled={progress === 0}
+              onClick={downloadTracks}
+              type="button"
+              className={`btn btn-${inProgress ? 'success' : 'primary'} rounded-pill ps-2`}
+              style={{ marginTop: "30px" }}
+            >
+              {isSearching ?
+                <span><Spinner type="grow" classList={['spinner-grow-sm',]} /> Searching...</span>
+                :
+                <span><i className="bi bi-download"></i> Download {downloadAll ? "All " : `${progress} of ${tracks.length}`}</span>
+              }
+            </button>
+            <div hidden={tracks.length === getSelectedVideoIds().length} className="form-check form-switch form-check-reverse form-check-input-checked-success pt-1 ms-2">
+              <input onChange={onChangeSwitch} className="form-check-input" type="checkbox" role="switch" id="dlCheckboxSwitch" />
+              <label className="form-check-label text-muted" style={{ fontSize: "0.85rem", paddingTop: "3px" }} htmlFor="dlCheckboxSwitch">{downloadAll ? `Entire` : `Partial`} playlist</label>
+            </div>
+
           </div>
         </div>
-        <div className=" align-self-center px-2 flex-fill">
-          {
-            selectedVideoIdsCount ?
-              <div hidden={true} className="progress" role="progressbar" aria-label="Tracks found" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
-                <div className="progress-bar" style={{ width: `${selectedVideoIdsCount / tracks.length * 100}%` }}>{selectedVideoIdsCount || 0} of {tracks.length} tracks found</div>
-              </div>
-              :
-              null
-          }
+        <div className={`py-4 lead ${isSearching ? "text-muted" : null}`}>
+          <TrackTitle />
+          <span className="ps-2">{!isLoading && !isSearching && unavailableTracks.includes(getCurrentTrackIdState()) && <button className="btn btn-outline-danger" type="button" onClick={() => removeTrack(getCurrentTrackIdState())}>٩◔̯◔۶ Unavailable for download! Click to remove <i className="bi bi-x-circle-fill"></i></button>}</span>
         </div>
-        <div className="">
-          <button hidden={!selectedVideoIdsCount} onClick={downloadSelectedTracks} type="button" className={`btn btn-${inProgress ? 'success' : 'primary'} rounded-pill`}>
-            <div><i className="bi bi-download"></i><span> Download {selectedVideoIdsCount} track{selectedVideoIdsCount > 1 ? "s" : null}</span></div>
-          </button>
+        <div className="d-flex flex-wrap gap-3">
+          {tracks.map((track) =>
+            <TrackCard
+              key={track.id + track.name}
+              onRemoveTrack={() => removeTrack(track.id)}
+              track={track}
+            />)}
         </div>
-      </div>
-      <div className="py-4 lead">{currentVideoTitle}
-        <span className="ps-2">{!isLoading && !isSearching && unavailableTracks.includes(getCurrentTrackIdState()) && <button className="btn btn-outline-danger" type="button" onClick={() => removeTrack(getCurrentTrackIdState())}>٩◔̯◔۶ Unavailable for download! Click to remove <i className="bi bi-x-circle-fill"></i></button>}</span>
-      </div>
-      <div className="d-flex flex-wrap gap-3">
-        {tracks.map((track) =>
-          <TrackCard
-            key={track.id}
-            onRemoveTrack={() => removeTrack(track.id)}
-            track={track}
-          />)}
       </div>
     </div>
   )
