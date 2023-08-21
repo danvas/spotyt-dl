@@ -616,8 +616,9 @@ const DATA = [
 function fetchPlaylist(id) {
   return fetch(`/api/playlist/${id}`)
     .then((response) => {
-      const data = response.json();
+      console.log({ response })
       const error_code = Math.floor(response.status / 100) * 100;
+      const data = response.json();
       if ([400, 500].includes(error_code)) {
         throw data;
       }
@@ -640,7 +641,7 @@ function getDownloadUrl({ playlistName, videoIds, extensions }) {
   videoIds.forEach(vid => params.append("v", vid));
   extensions?.forEach(ext => params.append("ext", ext));
   params.append("fname", playlistName);
-  return `${window.location.origin}/download?${params.toString()}`;
+  return `${window.location.origin}/api/download?${params.toString()}`;
 }
 
 function getDownloadAudioUrl({ fileName, videoId, extensions }) {

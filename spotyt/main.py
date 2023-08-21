@@ -1,4 +1,5 @@
 import uvicorn
+import io
 import json
 import logging
 import sys
@@ -271,8 +272,6 @@ async def youtube_download(
         exinfos = spio.extract_audio_infos(v, extensions=ext)
     except Exception as e:
         print(e)
-        # TODO: Investigate dependency injection using Depends 
-        # to handle `extensions` validation
         return JSONResponse({"error": str(e)}, status_code=500)
 
     # TODO: Realtime progress using WebSockets:
@@ -286,9 +285,10 @@ async def youtube_download(
         logger.debug(f"'{info.get('id')}' progress ({count}/{num_files}): {size / total * 100:.1f} % ({size / 1000000:.2f}MB)")
     
     stream = spio.StreamBytesIO()
+    t0 = time.time()
     def on_stream_completed():
         stream.close()
-        logger.debug("Download complete.")
+        print(f"Download complete. (Duration: {time.time() - t0:.1f}s)")
 
     background_tasks.add_task(on_stream_completed)
 
@@ -301,6 +301,52 @@ async def youtube_download(
         headers = headers
     )
 
+
+@app.get("/api/download")
+async def api_download(
+    background_tasks: BackgroundTasks,
+    v: list[str] = Query(default=None),
+    ext: Optional[list[str]] = Query(default=[]),
+    fname: Optional[str] = Query(default="spotyt-download"),
+):
+    try:
+        exinfos = spio.extract_audio_infos(v, extensions=ext)
+    except Exception as e:
+        print(e)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    t0 = time.time()
+    stream = io.BytesIO()
+
+    def on_completed():
+        stream.close()
+        print(f"Download complete. (Duration: {time.time() - t0:.1f}s)")
+
+    background_tasks.add_task(on_completed)
+    fname = fname.encode("unicode-escape").decode("utf-8") # Sanitize unicode
+    await spio.generate_zip(stream, exinfos)
+    headers = {"Content-Disposition": f"attachment; filename={fname}.zip"}
+    return StreamingResponse(
+        iter([stream.getvalue()]), 
+        media_type="application/x-zip-compressed", 
+        headers = headers
+    )
+
+# @app.get("/get-urls")
+# def get_urls(
+#     v: list[str] = Query(default=None),
+#     ext: Optional[list[str]] = Query(default=[]),
+# ):
+#     try:
+#         exinfos = spio.extract_audio_infos(v, extensions=ext)
+#     except Exception as e:
+#         print(e)
+#         # TODO: Investigate dependency injection using Depends 
+#         # to handle `extensions` validation
+#         return JSONResponse({"error": str(e)}, status_code=500)
+
+#     urls = [ei["formats"][-1]["url"] for ei in exinfos]
+#     return urls
 
 
 @app.get("/download-audio/{video_id}")

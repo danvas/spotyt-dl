@@ -1,4 +1,6 @@
 from __future__ import unicode_literals
+import aiohttp
+import asyncio
 import logging
 import sys
 import youtube_dl
@@ -12,6 +14,7 @@ from urllib.request import urlopen
 from pprint import pprint
 from pathlib import Path
 from spotyt.models import VideoInfo
+from urllib.parse import urlparse, parse_qs
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -38,7 +41,55 @@ class StreamBytesIO(RawIOBase):
         chunk = self._buffer
         self._buffer = b''
         return chunk
+
+def get_filename_from_id(url):
+    parsed_url = urlparse(url)
+    name = parse_qs(parsed_url.query).get("id", ['none'])[0]
+    _, ext = parse_qs(parsed_url.query).get("mime", ['audio/mp4'])[0].split("/")
+
+    return f"{name[-9:]}.{ext}"
+
+def get_props(exinfo):
+    format = exinfo["formats"][-1]
+    return {
+        "url": format["url"],
+        "ext": format["ext"],
+        "video_id": exinfo["id"],
+        "title": exinfo["title"],
+    }
+
+
+async def download_exinfo(session, exinfo):
+    props = get_props(exinfo)
+    url = props["url"]
+    vid = props["video_id"]
+    title = props["title"]
+    try:
+        async with session.get(url) as response:
+            return props, await response.read()
+    except Exception as e:
+        print(f"Error: {e} '{title}' (video_id: {vid})")
+        return props, None
     
+async def generate_zip(stream, exinfos):
+    with zipfile.ZipFile(stream, 'w') as zipf:
+        async with aiohttp.ClientSession() as session:
+    
+            tasks = [download_exinfo(session, xnf) for xnf in exinfos]
+            responses = await asyncio.gather(*tasks)
+            
+            for props, data in responses:
+                title = props["title"].replace("/", "_")
+                # filename = f"{props['video_id']}/{title}.{props['ext']}"
+                filename = f"{title}.{props['ext']}"
+                if not data:
+                    print(f"skipping: {filename}")
+                    continue
+                print("writing:", filename)
+                zipf.writestr(filename, data)
+
+    stream.seek(0)
+
 
 @lru_cache()
 def extract_youtube_info(url):
@@ -69,19 +120,23 @@ def zip_audio_files(
             z_info.compress_type = ZIP_STORED
             size = 0
             CHUNK_SIZE = 1024 * 32
-            with urlopen(url) as response, zf.open(z_info, mode='w') as dest:
-                while chunk := response.read(CHUNK_SIZE):
-                    dest.write(chunk)
-                    size += len(chunk)
-                    if progress_hook:
-                        progress_hook({
-                            "downloaded_bytes": size,
-                            "total_bytes": format["filesize"],
-                            "extracted_info": exinfo,
-                            "num_files": len(exinfos),
-                            "count": count,
-                        })
-                    yield stream.get()
+            try:
+                with urlopen(url) as response, zf.open(z_info, mode='w') as dest:
+                    while chunk := response.read(CHUNK_SIZE):
+                        dest.write(chunk)
+                        size += len(chunk)
+                        if progress_hook:
+                            progress_hook({
+                                "downloaded_bytes": size,
+                                "total_bytes": format["filesize"],
+                                "extracted_info": exinfo,
+                                "num_files": len(exinfos),
+                                "count": count,
+                            })
+                        yield stream.get()
+            except Exception as e:
+                logger.error(f"Error while streaming file {filename}: {e}")
+                continue
     yield stream.get()
 
 
